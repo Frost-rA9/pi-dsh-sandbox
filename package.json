@@ -15,7 +15,8 @@
     "e2e:model": "node scripts/e2e-model.mjs",
     "check:tools": "node scripts/check-fs-tools.mjs",
     "inspect": "node scripts/inspect-tools.mjs",
-    "check": "node scripts/check-types.mjs"
+    "check": "node scripts/check-types.mjs",
+    "check:anchors": "node scripts/check-anchors.mjs"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
