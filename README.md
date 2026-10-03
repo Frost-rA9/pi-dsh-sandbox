@@ -143,7 +143,8 @@ npm run e2e:model     # One live model turn, denial to approved retry
 
 `npm test` also runs behavior-parity tests against the same checkout: they import the dsh functions and compare the writable roots, path containment, the escalation strings, and the bubblewrap and Seatbelt profiles. They skip when no checkout exists.
 
-`.github/workflows/ci.yml` runs `npm test` and `tsc` on `ubuntu-latest` and
+`.github/workflows/ci.yml` runs `npm test`, `tsc`, and the anchor checks on
+`ubuntu-latest` and
 `macos-latest`.
 
 The macOS job runs `tests/enforcement.darwin.test.ts` against the real
