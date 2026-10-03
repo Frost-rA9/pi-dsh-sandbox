@@ -14,6 +14,8 @@
 
 代码入口是 `index.ts`，`src/` 下每个模块管一件事。
 
+设计要点与 dsh 锚点见 [`docs/design.md`](docs/design.md)。
+
 模式词汇、逐次调用解析的策略、升级流程、以及模型可见的文案，都来自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）。
 
 ## 模式
@@ -95,11 +97,14 @@ pi 会请你审批，而授权只覆盖那一次调用。拒绝、取消弹窗�
 ```bash
 npm test              # 单测、围栏、真实 bubblewrap、假 sandbox-exec
 npm run check         # tsc，宿主声明走符号链接
+npm run check:anchors # dsh 与 pi 锚点漂移检查
 npm run inspect       # 打印工具 schema，无需模型调用
 npm run e2e           # 真实 pi 走 RPC：bash 与 ! 的强制生效
 npm run check:tools   # 工具执行内部的围栏与升级审批
 npm run e2e:model     # 一次真实模型回合：从被拒到审批后重试
 ```
+
+`npm run check:anchors` 校验 `docs/` 里的 dsh 与 pi 锚点，有 `deepseek-harness` 检出时用 `PI_DSH_ROOT` 或 `--dsh` 定位；传 `--to <ref>` 会对新的 dsh ref 产出一份漂移报告：机器可判定的漂移（含变更的字面量）与需要人工判定的锚点，`--report <path>` 可把报告写入文件。
 
 `.github/workflows/ci.yml` 在 `ubuntu-latest` 与 `macos-latest` 上跑 `npm test` 与 `tsc`。
 

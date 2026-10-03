@@ -18,6 +18,8 @@ separate state.
 
 The code lives in `index.ts`, with one module per concern under `src/`.
 
+The design rationale and the dsh anchors are in [`docs/design.md`](docs/design.md).
+
 The modes, the per-call policy, the escalation flow, and the model-facing
 strings come from
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).
@@ -130,11 +132,14 @@ back to `read-only` instead of ignoring it.
 ```bash
 npm test              # Unit, fence, real bubblewrap, fake sandbox-exec
 npm run check         # tsc, with host declarations symlinked
+npm run check:anchors # dsh and pi anchor drift checks
 npm run inspect       # Tool schemas, no model call
 npm run e2e           # Real pi over RPC: bash and ! enforcement
 npm run check:tools   # Fence and escalation inside a tool execution
 npm run e2e:model     # One live model turn, denial to approved retry
 ```
+
+`npm run check:anchors` verifies the dsh and pi anchors in `docs/`, using `PI_DSH_ROOT` (or `--dsh`) when a `deepseek-harness` checkout exists. `--to <ref>` produces a drift report for a new dsh ref: mechanical drift with the changed literals, plus the anchors that need semantic review. `--report <path>` writes it to a file.
 
 `.github/workflows/ci.yml` runs `npm test` and `tsc` on `ubuntu-latest` and
 `macos-latest`.
