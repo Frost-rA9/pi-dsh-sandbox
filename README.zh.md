@@ -10,6 +10,8 @@
 
 读取不受限制，命令保留宿主网络。沙箱只管文件写入。
 
+沙箱做限制，[pi-dsh-plan](https://github.com/Frost-rA9/pi-dsh-plan) 做指导，两者各自维护状态。
+
 代码入口是 `index.ts`，`src/` 下每个模块管一件事。
 
 模式词汇、逐次调用解析的策略、升级流程、以及模型可见的文案，都来自 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）。
@@ -50,6 +52,8 @@ pi --sandbox-mode read-only                          # 优先于恢复出来的�
 选 `danger-full-access` 会先要一次确认，`/sandbox danger-full-access` 同样会问。
 
 `/sandbox <mode>` 与 `/sandbox off` 跳过选择器。每次切换追加一条会话条目，所以恢复会话时模式一并恢复。
+
+切换真正改变了生效档位时，还会向模型发一条 notice：一条显示在 transcript 里的消息，说明新的模式及其文件策略。重复选择当前模式，以及启动时的 `--sandbox-mode` 旗标，都不会发。
 
 footer 把模式显示为 `[sandbox::<mode>]`。`read-only` 是绿色，`workspace-write` 是主题色，`danger-full-access` 是黄色；`unavailable` 是红色，表示该受限模式没有可用后端。
 

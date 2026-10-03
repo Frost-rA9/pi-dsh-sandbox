@@ -12,6 +12,10 @@ The `write` and `edit` tools check the target path in process. Commands, in the
 Reads stay unrestricted, and commands keep the host network. The sandbox
 governs file writes only.
 
+The sandbox confines while
+[pi-dsh-plan](https://github.com/Frost-rA9/pi-dsh-plan) guides. The two keep
+separate state.
+
 The code lives in `index.ts`, with one module per concern under `src/`.
 
 The modes, the per-call policy, the escalation flow, and the model-facing
@@ -64,6 +68,11 @@ Picking `danger-full-access` asks for confirmation first, and so does
 
 `/sandbox <mode>` and `/sandbox off` skip the picker. A switch appends one
 session entry, so a resumed session restores it.
+
+A switch that changes the effective mode also posts one notice to the model: a
+message shown in the transcript that names the new mode and its file policy. A
+repeat selection of the current mode, and the startup `--sandbox-mode` flag,
+stay silent.
 
 The footer shows the mode as `[sandbox::<mode>]`. The token is green for
 `read-only`, accent for `workspace-write`, yellow for `danger-full-access`, and
