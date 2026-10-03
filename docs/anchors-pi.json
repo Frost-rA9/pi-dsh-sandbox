@@ -1,0 +1,157 @@
+{
+  "upstream": "pi",
+  "design": "docs/design.md",
+  "package": "@earendil-works/pi-coding-agent",
+  "recordedVersion": "1.0.0",
+  "declarationsRelativeTo": "the installed package root",
+  "piPathsRelativeTo": "this repository root",
+  "evidenceLabels": ["documented-api", "documented-behavior", "observed-behavior", "package-export"],
+  "evidenceMeans": {
+    "documented-api": "a declared extension API in dist/core/extensions/types.d.ts",
+    "documented-behavior": "documented in docs/extensions.md, but only the behavior, not a signature",
+    "observed-behavior": "read from pi source; no compatibility promise",
+    "package-export": "exported by the package for pi's own use, not part of the extension API"
+  },
+  "seams": [
+    {
+      "id": "append-entry",
+      "seam": "ExtensionAPI.appendEntry",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "appendEntry",
+      "usage": ["src/state.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; tests/state.test.ts",
+      "risk": "the session override across resume and fork"
+    },
+    {
+      "id": "session-branch",
+      "seam": "session_start event + ReadonlySessionManager.getBranch()",
+      "declaration": "dist/core/session-manager.d.ts",
+      "symbol": "getBranch",
+      "usage": ["index.ts", "src/state.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; tests/state.test.ts",
+      "risk": "restoring the override from the active branch"
+    },
+    {
+      "id": "builtin-write-edit-factories",
+      "seam": "createWriteToolDefinition + createEditToolDefinition + the WriteOperations and EditOperations shapes",
+      "declaration": "dist/core/tools/write.d.ts",
+      "symbol": "createWriteToolDefinition",
+      "usage": ["src/fstools.ts"],
+      "evidence": "package-export",
+      "coveredBy": "npm run check; manual diff of dist/core/tools on a version bump",
+      "risk": "highest: the fence attaches through the operations option, so a factory or operations-shape change breaks enforcement or loading"
+    },
+    {
+      "id": "operations-option",
+      "seam": "the { operations } option on the built-in tool factories",
+      "declaration": "dist/core/tools/bash.d.ts",
+      "symbol": "operations",
+      "usage": ["src/bash.ts", "src/fstools.ts"],
+      "evidence": "package-export",
+      "coveredBy": "npm run check; npm run e2e (confined bash and fence)",
+      "risk": "the single attachment point for both enforcement families"
+    },
+    {
+      "id": "mutation-queue",
+      "seam": "pi wraps built-in operations calls in a per-path mutation queue",
+      "declaration": null,
+      "symbol": null,
+      "usage": ["src/fstools.ts"],
+      "evidence": "observed-behavior",
+      "coveredBy": "manual read of pi source on a version bump",
+      "risk": "the fence's re-canonicalize step assumes it runs inside the critical section"
+    },
+    {
+      "id": "builtin-bash-factories",
+      "seam": "createBashToolDefinition + createLocalBashOperations + getShellConfig",
+      "declaration": "dist/core/tools/bash.d.ts",
+      "symbol": "createBashToolDefinition",
+      "usage": ["src/bash.ts"],
+      "evidence": "package-export",
+      "coveredBy": "npm run check; npm run e2e (confined bash)",
+      "risk": "the confined bash family and its local fallback"
+    },
+    {
+      "id": "user-bash-event",
+      "seam": "user_bash event returning { operations }",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "UserBashEvent",
+      "usage": ["src/bash.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; npm run e2e",
+      "risk": "the ! command path"
+    },
+    {
+      "id": "settings",
+      "seam": "ExtensionAPI.getSettings() with shellPath and shellCommandPrefix",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "getSettings",
+      "usage": ["src/bash.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check",
+      "risk": "shell resolution inside the wrapper"
+    },
+    {
+      "id": "commands-flags",
+      "seam": "ExtensionAPI.registerCommand, registerFlag, getFlag",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "registerCommand",
+      "usage": ["index.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; npm run e2e (/sandbox)",
+      "risk": "the /sandbox surface and the startup flags"
+    },
+    {
+      "id": "custom-message",
+      "seam": "ExtensionAPI.sendMessage with display and deliverAs: steer, gated by ExtensionContext.isIdle()",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "sendMessage",
+      "usage": ["index.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; npm run e2e (switch notice)",
+      "risk": "the tier-switch notice"
+    },
+    {
+      "id": "dialogs",
+      "seam": "ExtensionContext.ui.select + ui.confirm + hasUI",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "select",
+      "usage": ["index.ts", "src/escalation.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; npm run e2e (picker); escalation approval is covered by tests/escalation.test.ts with a stub",
+      "risk": "the picker, the full-access confirmation, and the escalation approval"
+    },
+    {
+      "id": "status",
+      "seam": "ExtensionContext.ui.setStatus + ui.theme.fg",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "setStatus",
+      "usage": ["index.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check; manual check of the footer",
+      "risk": "the [sandbox::mode] footer token"
+    },
+    {
+      "id": "config-paths",
+      "seam": "getAgentDir + CONFIG_DIR_NAME",
+      "declaration": "dist/config.d.ts",
+      "symbol": "getAgentDir",
+      "usage": ["index.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check",
+      "risk": "the global and project config file locations"
+    },
+    {
+      "id": "tool-context",
+      "seam": "ExtensionToolContext with ui, hasUI, and cwd",
+      "declaration": "dist/core/extensions/types.d.ts",
+      "symbol": "ExtensionToolContext",
+      "usage": ["src/bash.ts", "src/fstools.ts"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check",
+      "risk": "per-call escalation approval and workspace resolution"
+    }
+  ]
+}
