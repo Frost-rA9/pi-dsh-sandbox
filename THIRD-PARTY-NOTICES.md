@@ -2,9 +2,7 @@
 
 ## DeepSeek Harness (dsh)
 
-The mode vocabulary, the escalation vocabulary and its model-facing strings, the
-bubblewrap and Seatbelt profile builders, and the writable-root derivation are
-ported from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+The mode vocabulary, the escalation vocabulary and its model-facing strings, the sandbox policy context sentences, the bubblewrap and Seatbelt profile builders, and the writable-root derivation come from [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
 ```text
 MIT License

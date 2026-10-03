@@ -53,6 +53,8 @@ child.stderr.on("data", (data) => {
 });
 
 const pending = new Map();
+const events = [];
+const waiters = [];
 readline.createInterface({ input: child.stdout }).on("line", (line) => {
   let message;
   try {
@@ -63,8 +65,33 @@ readline.createInterface({ input: child.stdout }).on("line", (line) => {
   if (message.type === "response" && message.id && pending.has(message.id)) {
     pending.get(message.id)(message);
     pending.delete(message.id);
+    return;
+  }
+  events.push(message);
+  for (const waiter of [...waiters]) {
+    if (waiter.predicate(message)) {
+      waiters.splice(waiters.indexOf(waiter), 1);
+      waiter.resolve(message);
+    }
   }
 });
+
+/** Await one event matching the predicate among those already seen or arriving later. */
+function waitForEvent(predicate, timeoutMs = 5000) {
+  const seen = events.find(predicate);
+  if (seen) return Promise.resolve(seen);
+  return new Promise((resolvePromise, reject) => {
+    const waiter = { predicate, resolve: resolvePromise };
+    waiters.push(waiter);
+    setTimeout(() => {
+      const index = waiters.indexOf(waiter);
+      if (index !== -1) {
+        waiters.splice(index, 1);
+        reject(new Error("timeout waiting for event"));
+      }
+    }, timeoutMs);
+  });
+}
 
 /** Send one RPC command and await its response. */
 function send(command, timeoutMs = 30_000) {
@@ -98,6 +125,14 @@ try {
   const toReadOnly = await send({ type: "prompt", message: "/sandbox read-only" });
   record("/sandbox read-only applies", toReadOnly.success === true);
 
+  const readOnlyNotice = await waitForEvent(
+    (event) => event.type === "message_end" && event.message?.customType === "dsh-sandbox-notice",
+  );
+  record(
+    "read-only posts the switch notice",
+    /switched this session's sandbox mode to read-only/.test(readOnlyNotice.message?.content ?? ""),
+  );
+
   const readOnlyTmp = await send({ type: "bash", command: "echo hi > /tmp/pi-dsh-e2e-write2.txt" });
   record("read-only: /tmp is denied", readOnlyTmp.data?.exitCode !== 0, `exit=${readOnlyTmp.data?.exitCode}`);
 
@@ -105,6 +140,13 @@ try {
   record("read-only: / is denied", readOnlyRoot.data?.exitCode !== 0, `exit=${readOnlyRoot.data?.exitCode}`);
 
   const restore = await send({ type: "prompt", message: "/sandbox workspace-write" });
+  const wsNotice = await waitForEvent(
+    (event) =>
+      event.type === "message_end" &&
+      event.message?.customType === "dsh-sandbox-notice" &&
+      /workspace-write/.test(event.message?.content ?? ""),
+  );
+  record("workspace-write posts the switch notice", wsNotice.message?.content !== undefined);
   const back = await send({ type: "bash", command: "rm -f /tmp/pi-dsh-e2e-write.txt && echo restored" });
   record("workspace-write restores writes", restore.success === true && back.data?.exitCode === 0, `exit=${back.data?.exitCode}`);
 } catch (error) {

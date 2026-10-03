@@ -24,6 +24,7 @@ import { registerBashTool } from "./src/bash.ts";
 import { registerFsTools } from "./src/fstools.ts";
 import { SANDBOX_MODES, isConfined, isSandboxMode, type SandboxMode } from "./src/modes.ts";
 import { MODE_ENTRY, STATUS_KEY, SandboxState } from "./src/state.ts";
+import { SANDBOX_NOTICE_TYPE, sandboxSwitchNotice } from "./src/notice.ts";
 
 /** Global config file name under `<agentDir>/extensions/`. */
 const GLOBAL_CONFIG_FILE = "pi-dsh-sandbox.json";
@@ -75,7 +76,7 @@ function statusReport(state: SandboxState, confinementMounted: boolean): string 
 /**
  * Apply one mode selection: confirm an explicit full-access request when a
  * dialog channel exists (dsh's browser keeps the same acknowledgement), record
- * it, and report the outcome.
+ * it, report the outcome, and tell the model when the effective tier changed.
  */
 async function applyMode(
   pi: ExtensionAPI,
@@ -93,8 +94,23 @@ async function applyMode(
       return;
     }
   }
+  const before = state.effectiveMode();
   const selection = state.setOverride(pi, mode);
   updateStatus(state, ctx);
+  // One visible model-facing notice per real switch. Sending it only when the
+  // effective tier changed keeps a repeat selection and a downgraded request
+  // quiet, and the startup flags never reach this path.
+  if (state.effectiveMode() !== before) {
+    pi.sendMessage(
+      {
+        customType: SANDBOX_NOTICE_TYPE,
+        content: sandboxSwitchNotice(state.effectiveMode(), state.resolve().workspaceRoot),
+        display: true,
+        details: undefined,
+      },
+      ctx.isIdle() ? undefined : { deliverAs: "steer" },
+    );
+  }
   ctx.ui.notify(
     selection.downgraded
       ? `Sandbox mode: danger-full-access (${selection.requested} cannot be enforced — ${state.fallbackReason() ?? "no backend"})`
