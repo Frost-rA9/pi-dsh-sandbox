@@ -120,7 +120,7 @@
       "symbol": "select",
       "usage": ["index.ts", "src/escalation.ts"],
       "evidence": "documented-api",
-      "coveredBy": "npm run check; npm run e2e (picker); escalation approval is covered by tests/escalation.test.ts with a stub",
+      "coveredBy": "npm run check; npm run check:tools covers the escalation approval with a stub channel",
       "risk": "the picker, the full-access confirmation, and the escalation approval"
     },
     {

@@ -35,7 +35,7 @@
       ],
       "pi": [{ "path": "src/roots.ts", "symbol": "writableRoots" }],
       "result": "ported-verbatim",
-      "parity": { "status": "planned", "test": "tests/roots-parity.test.ts" },
+      "parity": { "status": "present", "test": "tests/roots-parity.test.ts" },
       "note": "one derivation shared by the fence and the bubblewrap profile"
     },
     {
@@ -55,7 +55,7 @@
       "dsh": [{ "path": "packages/fs/fs-sandbox/src/containment.ts", "symbol": "isPathUnder" }],
       "pi": [{ "path": "src/containment.ts", "symbol": "isPathUnder" }],
       "result": "ported",
-      "parity": { "status": "planned", "test": "tests/containment-parity.test.ts" },
+      "parity": { "status": "present", "test": "tests/containment-parity.test.ts" },
       "note": "lexical fast path plus filesystem-identity fallback"
     },
     {
@@ -97,7 +97,7 @@
         { "path": "src/escalation.ts", "symbol": "sandboxDenialMarker" }
       ],
       "result": "ported-verbatim",
-      "parity": { "status": "planned", "test": "tests/escalation-parity.test.ts" },
+      "parity": { "status": "present", "test": "tests/escalation-parity.test.ts" },
       "note": "strings verbatim; the approval channel substitutes ctx.ui.select for ctx.approval"
     },
     {
@@ -117,7 +117,7 @@
       "dsh": [{ "path": "packages/sandbox/sandbox-local/src/profiles.ts", "symbol": "bwrapProfileArgs" }],
       "pi": [{ "path": "src/bwrap.ts", "symbol": "bwrapProfileArgs" }],
       "result": "ported",
-      "parity": { "status": "planned", "test": "tests/bwrap-parity.test.ts" },
+      "parity": { "status": "present", "test": "tests/bwrap-parity.test.ts" },
       "note": "the Landlock rung from the same file is not ported"
     },
     {
@@ -127,7 +127,7 @@
       "dsh": [{ "path": "packages/sandbox/sandbox-local/src/profiles.ts", "symbol": "seatbeltProfileArgs" }],
       "pi": [{ "path": "src/seatbelt.ts", "symbol": "seatbeltProfileArgs" }],
       "result": "ported",
-      "parity": { "status": "planned", "test": "tests/seatbelt-parity.test.ts" },
+      "parity": { "status": "present", "test": "tests/seatbelt-parity.test.ts" },
       "note": "includes the dialect probe"
     },
     {
@@ -161,8 +161,8 @@
       "dsh": [{ "path": "packages/sandbox/sandbox-policy/src/index.ts", "symbol": "renderPolicyContext" }],
       "pi": [{ "path": "src/notice.ts", "symbol": "sandboxPolicyContext" }],
       "result": "adapted",
-      "parity": { "status": "planned", "test": "tests/notice.test.ts" },
-      "note": "the per-request runtime context becomes a switch notice, with the product name replaced"
+      "parity": null,
+      "note": "the per-request runtime context becomes a switch notice, with the product name replaced; no call parity is possible while renderPolicyContext stays unexported, and a dsh-side change appears as a review item in the anchor report"
     },
     {
       "id": "windows-acl-rung",
