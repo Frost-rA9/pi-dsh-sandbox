@@ -109,7 +109,9 @@ test("a symlink inside the workspace pointing outside is denied (fresh-target ch
       // Lexically inside the workspace; canonically inside `outside`, which is
       // not a writable root. The fresh-target check must therefore deny it.
       assert.equal(escapes.startsWith(workspace), true);
-      assert.equal(freshestTarget(escapes), join(outside, "resolved-inside.txt"));
+      // The fresh target resolves to the CANONICAL outside path (darwin:
+      // /var/tmp is /private/var/tmp), which is exactly the point of the check.
+      assert.equal(freshestTarget(escapes), join(realpathSync.native(outside), "resolved-inside.txt"));
       await assert.rejects(
         () => checkedTarget(escapes, { mode: "workspace-write", workspaceRoot: workspace }),
         SandboxDeniedError,
