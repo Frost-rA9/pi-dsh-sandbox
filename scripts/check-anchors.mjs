@@ -31,6 +31,7 @@
  *   node scripts/check-anchors.mjs --to <new-ref> [--from <baseline-ref>] [--report <path.md>]
  *   node scripts/check-anchors.mjs --design
  *   node scripts/check-anchors.mjs --dsh /path/to/deepseek-harness
+ *   node scripts/check-anchors.mjs --no-dsh
  *
  * @module check-anchors
  */
@@ -50,7 +51,7 @@ const flagValue = (name) => {
 };
 
 if (argv.includes("--help")) {
-  console.log("Usage: node scripts/check-anchors.mjs [--to <ref>] [--from <ref>] [--report <path.md>] [--design] [--dsh <path>]");
+  console.log("Usage: node scripts/check-anchors.mjs [--to <ref>] [--from <ref>] [--report <path.md>] [--design] [--dsh <path>] [--no-dsh]");
   process.exit(0);
 }
 
@@ -62,12 +63,13 @@ let failures = 0;
 const note = (kind, text) => console.log(`${kind.padEnd(8)} ${text}`);
 
 // --- locate the dsh checkout ------------------------------------------------
+const skipDsh = argv.includes("--no-dsh");
 const explicitDsh = flagValue("--dsh") ?? process.env.PI_DSH_ROOT;
 const dshCandidates = explicitDsh === undefined
   ? [join(repoRoot, "..", "deepseek-harness"), join(homedir(), "projects", "deepseek-harness")]
   : [explicitDsh];
-const dshRoot = dshCandidates.find((candidate) => existsSync(join(candidate, "packages")));
-if (dshRoot === undefined && explicitDsh !== undefined) {
+const dshRoot = skipDsh ? undefined : dshCandidates.find((candidate) => existsSync(join(candidate, "packages")));
+if (!skipDsh && dshRoot === undefined && explicitDsh !== undefined) {
   note("FAIL", `dsh checkout not found at ${explicitDsh}`);
   process.exit(1);
 }
@@ -167,9 +169,9 @@ function diffStat(from, to, path) {
   return { added: Number(added), removed: Number(removed) };
 }
 
-// --- local consistency ------------------------------------------------------
+// --- local consistency: dsh anchors -----------------------------------------
 if (dshRoot === undefined) {
-  note("SKIP", "no dsh checkout; set PI_DSH_ROOT or pass --dsh to run the dsh checks");
+  note("SKIP", "no dsh checkout; set PI_DSH_ROOT or pass --dsh to run the dsh anchor checks");
 } else {
   let bad = 0;
   for (const anchor of dshLedger.anchors) {
@@ -185,29 +187,8 @@ if (dshRoot === undefined) {
         bad += 1;
       }
     }
-    for (const entry of anchor.pi) {
-      let content;
-      try {
-        content = readFileSync(join(repoRoot, entry.path), "utf8");
-      } catch {
-        note("FAIL", `pi file missing: ${anchor.id} -> ${entry.path}`);
-        failures += 1;
-        bad += 1;
-        continue;
-      }
-      if (entry.symbol !== null && !content.includes(entry.symbol)) {
-        note("FAIL", `pi symbol missing: ${anchor.id} -> ${entry.path} :: ${entry.symbol}`);
-        failures += 1;
-        bad += 1;
-      }
-    }
-    if (anchor.parity?.status === "present" && !existsSync(join(repoRoot, anchor.parity.test))) {
-      note("FAIL", `parity test missing: ${anchor.id} -> ${anchor.parity.test}`);
-      failures += 1;
-      bad += 1;
-    }
   }
-  if (bad === 0) note("OK", `dsh ledger: ${dshLedger.anchors.length} anchors resolve at ${fromRef}`);
+  if (bad === 0) note("OK", `dsh anchors: ${dshLedger.anchors.length} resolve at ${fromRef}`);
 }
 
 function hasFile(ref, path) {
@@ -218,6 +199,35 @@ function hasFile(ref, path) {
     return false;
   }
 }
+
+// --- local consistency: the pi side of the dsh anchors ----------------------
+// This half needs no dsh checkout, so it runs in CI, where the checkout is
+// absent. It covers the pi files each anchor names and the parity test.
+let anchorPiBad = 0;
+for (const anchor of dshLedger.anchors) {
+  for (const entry of anchor.pi) {
+    let content;
+    try {
+      content = readFileSync(join(repoRoot, entry.path), "utf8");
+    } catch {
+      note("FAIL", `pi file missing: ${anchor.id} -> ${entry.path}`);
+      failures += 1;
+      anchorPiBad += 1;
+      continue;
+    }
+    if (entry.symbol !== null && !content.includes(entry.symbol)) {
+      note("FAIL", `pi symbol missing: ${anchor.id} -> ${entry.path} :: ${entry.symbol}`);
+      failures += 1;
+      anchorPiBad += 1;
+    }
+  }
+  if (anchor.parity?.status === "present" && !existsSync(join(repoRoot, anchor.parity.test))) {
+    note("FAIL", `parity test missing: ${anchor.id} -> ${anchor.parity.test}`);
+    failures += 1;
+    anchorPiBad += 1;
+  }
+}
+if (anchorPiBad === 0) note("OK", `anchor pi targets: ${dshLedger.anchors.length} anchors resolve without a dsh checkout`);
 
 let piBad = 0;
 for (const seam of piLedger.seams) {
