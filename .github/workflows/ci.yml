@@ -45,4 +45,7 @@ jobs:
         run: node --test tests/*.test.ts
 
       - name: Type check
-        run: npx tsc -p tsconfig.json --noEmit
+        # Run the documented command, not tsc directly: the script is what
+        # resolves the declarations, and CI is where its portability path is
+        # exercised on a host with no pi installation.
+        run: npm run check

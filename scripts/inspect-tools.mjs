@@ -18,8 +18,12 @@ import { fileURLToPath } from "node:url";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const packageRoot = resolve(here, "..");
 
+// Most portable first: the explicit override, this checkout's own node_modules
+// (what `npm install` produces, locally and in CI), then the volta layout of the
+// development machine.
 const candidates = [
   process.env.PI_DIST,
+  resolve(packageRoot, "node_modules/@earendil-works/pi-coding-agent/dist/index.js"),
   join(
     homedir(),
     ".volta/tools/image/packages/@earendil-works/pi-coding-agent/lib/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
