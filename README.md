@@ -141,6 +141,8 @@ npm run e2e:model     # One live model turn, denial to approved retry
 
 `npm run check:anchors` verifies the dsh and pi anchors in `docs/`, using `PI_DSH_ROOT` (or `--dsh`) when a `deepseek-harness` checkout exists. `--to <ref>` produces a drift report for a new dsh ref: mechanical drift with the changed literals, plus the anchors that need semantic review. `--report <path>` writes it to a file.
 
+`npm test` also runs behavior-parity tests against the same checkout: they import the dsh functions and compare the writable roots, path containment, the escalation strings, and the bubblewrap and Seatbelt profiles. They skip when no checkout exists.
+
 `.github/workflows/ci.yml` runs `npm test` and `tsc` on `ubuntu-latest` and
 `macos-latest`.
 

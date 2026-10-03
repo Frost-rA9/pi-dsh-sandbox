@@ -106,6 +106,8 @@ npm run e2e:model     # 一次真实模型回合：从被拒到审批后重试
 
 `npm run check:anchors` 校验 `docs/` 里的 dsh 与 pi 锚点，有 `deepseek-harness` 检出时用 `PI_DSH_ROOT` 或 `--dsh` 定位；传 `--to <ref>` 会对新的 dsh ref 产出一份漂移报告：机器可判定的漂移（含变更的字面量）与需要人工判定的锚点，`--report <path>` 可把报告写入文件。
 
+`npm test` 还会对同一检出跑行为比对测试：直接 import dsh 的函数，比较 writable roots、路径包含、升级文案，以及 bubblewrap 与 Seatbelt profile。没有检出时跳过。
+
 `.github/workflows/ci.yml` 在 `ubuntu-latest` 与 `macos-latest` 上跑 `npm test` 与 `tsc`。
 
 macOS job 用真的 `sandbox-exec` 跑 `tests/enforcement.darwin.test.ts`。Seatbelt profile、EPERM 拒绝、以及 `/tmp` 到 `/private/tmp` 的映射，只有在那里才对着真正的内核验证。
