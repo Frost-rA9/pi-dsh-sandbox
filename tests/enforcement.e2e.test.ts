@@ -1,7 +1,8 @@
 /**
  * Enforcement tests: run the WRAPPED command through a real shell and assert
- * bubblewrap's observable behavior (denial dialect, allowed workspace writes).
- * Skips when the host has no usable bwrap, so the suite stays portable.
+ * the probed backend's observable behavior (denial dialect, allowed workspace
+ * writes). The suite is backend-agnostic — Linux runs it against bubblewrap,
+ * macOS against Seatbelt — and skips on a host with no usable backend.
  *
  * @module pi-dsh-sandbox/tests/enforcement.e2e.test
  */
@@ -41,7 +42,7 @@ function withWorkspace<T>(fn: (workspace: string) => T): T {
   }
 }
 
-test("read-only refuses a workspace write with the bwrap denial dialect", { skip }, () => {
+test("read-only refuses a workspace write with the backend denial dialect", { skip }, () => {
   withWorkspace((workspace) => {
     const target = join(workspace, "written.txt");
     const command = wrap(confiner, { mode: "read-only", workspaceRoot: workspace }, `echo hi > ${shellQuote(target)}`);
