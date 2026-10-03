@@ -1,0 +1,35 @@
+{
+  "name": "pi-dsh-sandbox",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "dsh-style file-effect sandbox for pi: read-only / workspace-write / danger-full-access, with bubblewrap (Linux) and Seatbelt (macOS) command confinement",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "e2e": "node scripts/e2e-rpc.mjs",
+    "e2e:model": "node scripts/e2e-model.mjs",
+    "check:tools": "node scripts/check-fs-tools.mjs",
+    "inspect": "node scripts/inspect-tools.mjs",
+    "check": "node scripts/check-types.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Frost-rA9/pi-dsh-sandbox.git"
+  },
+  "keywords": [
+    "pi-package",
+    "sandbox",
+    "bubblewrap",
+    "seatbelt"
+  ]
+}

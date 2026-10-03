@@ -1,0 +1,48 @@
+name: ci
+
+# `ubuntu-latest` runs the Linux rung against the host bubblewrap;
+# `macos-latest` is real macOS, where the darwin suite exercises Apple's
+# `sandbox-exec` for real — that job is what completes the Seatbelt rung's
+# verification (the fake runner in tests/seatbelt.test.ts cannot).
+#
+# The RPC and live-model checks (`npm run e2e`, `npm run e2e:model`,
+# `npm run check:tools`, `npm run inspect`) stay local: they need a `pi`
+# installation and a configured model.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # Declarations only: the extension ships no runtime dependencies (pi
+      # supplies and aliases them at load time). The versions match the host
+      # this was developed against; bumping them is how upstream API drift
+      # shows up.
+      - name: Install type-check declarations
+        run: >-
+          npm install --no-save --no-audit --no-fund
+          typescript@6
+          @types/node@24
+          typebox@1.3.27
+          @earendil-works/pi-coding-agent@1.0.0
+
+      - name: Unit and enforcement tests
+        run: node --test tests/*.test.ts
+
+      - name: Type check
+        run: npx tsc -p tsconfig.json --noEmit
