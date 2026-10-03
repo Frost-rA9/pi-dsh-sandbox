@@ -49,3 +49,9 @@ jobs:
         # resolves the declarations, and CI is where its portability path is
         # exercised on a host with no pi installation.
         run: npm run check
+
+      - name: Anchor checks
+        # There is no dsh checkout in CI, so the drift half skips. This still
+        # checks the pi-side anchor targets, the parity test pointers, the pi
+        # seam declarations, and that design.md matches the ledger.
+        run: npm run check:anchors -- --design --no-dsh
