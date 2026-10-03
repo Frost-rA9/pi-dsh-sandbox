@@ -201,6 +201,11 @@ if (dshRoot === undefined) {
         bad += 1;
       }
     }
+    if (anchor.parity?.status === "present" && !existsSync(join(repoRoot, anchor.parity.test))) {
+      note("FAIL", `parity test missing: ${anchor.id} -> ${anchor.parity.test}`);
+      failures += 1;
+      bad += 1;
+    }
   }
   if (bad === 0) note("OK", `dsh ledger: ${dshLedger.anchors.length} anchors resolve at ${fromRef}`);
 }
