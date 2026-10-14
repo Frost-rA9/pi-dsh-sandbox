@@ -40,7 +40,7 @@
       "symbol": "createWriteToolDefinition",
       "usage": ["src/fstools.ts"],
       "evidence": "package-export",
-      "coveredBy": "npm run check; manual diff of dist/core/tools on a version bump",
+      "coveredBy": "npm run check; npm run check:shape; manual diff of dist/core/tools on a version bump",
       "risk": "highest: the fence attaches through the operations option, so a factory or operations-shape change breaks enforcement or loading"
     },
     {
@@ -48,7 +48,7 @@
       "seam": "the { operations } option on the built-in tool factories",
       "declaration": "dist/core/tools/bash.d.ts",
       "symbol": "operations",
-      "usage": ["src/bash.ts", "src/fstools.ts", "src/codemode.ts"],
+      "usage": ["src/bash.ts", "src/fstools.ts"],
       "evidence": "package-export",
       "coveredBy": "npm run check; npm run e2e (confined bash and fence)",
       "risk": "the single attachment point for both enforcement families"
@@ -120,7 +120,7 @@
       "symbol": "createCodemodeExtension",
       "usage": ["src/codemode.ts"],
       "evidence": "package-export",
-      "coveredBy": "npm run check; npm run check:tools (the codemode phase asserts the escalation fields, one dialog per run, and the guidance)",
+      "coveredBy": "npm run check; npm run check:shape; npm run check:tools (the codemode phase asserts the escalation fields, one dialog per run, and the guidance)",
       "risk": "the program-level escalation fields, the one-shot run grant, and the guidance text the model reads"
     },
     {
@@ -162,6 +162,16 @@
       "evidence": "documented-api",
       "coveredBy": "npm run check",
       "risk": "per-call escalation approval and workspace resolution"
+    },
+    {
+      "id": "tool-shape",
+      "seam": "AgentSession.getToolDefinition to read the registered definition",
+      "declaration": "dist/core/agent-session.d.ts",
+      "symbol": "getToolDefinition",
+      "usage": ["scripts/check-tool-shape.mjs"],
+      "evidence": "documented-api",
+      "coveredBy": "npm run check:shape",
+      "risk": "the drift check compares pi's own definition with the replacement"
     }
   ]
 }

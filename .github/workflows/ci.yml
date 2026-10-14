@@ -50,6 +50,11 @@ jobs:
         # exercised on a host with no pi installation.
         run: npm run check
 
+      - name: Tool-shape drift check
+        # The pinned pi package is installed for declarations, and its dist is
+        # what this compares the replacement definitions against.
+        run: npm run check:shape
+
       - name: Anchor checks
         # There is no dsh checkout in CI, so the drift half skips. This still
         # checks the pi-side anchor targets, the parity test pointers, the pi

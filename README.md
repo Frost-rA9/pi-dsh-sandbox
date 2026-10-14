@@ -143,12 +143,15 @@ npm run check:anchors # dsh and pi anchor drift checks
 npm run inspect       # Tool schemas, no model call
 npm run e2e           # Real pi over RPC: bash and ! enforcement
 npm run check:tools   # Fence and escalation inside a tool execution
+npm run check:shape   # Replacement definitions still carry what pi's do
 npm run e2e:model     # Two live model turns: per-call retry, then one program-sized approval
 ```
 
 `npm run check:anchors` verifies the dsh and pi anchors in `docs/`, using `PI_DSH_ROOT` (or `--dsh`) when a `deepseek-harness` checkout exists. `--to <ref>` produces a drift report for a new dsh ref: mechanical drift with the changed literals, plus the anchors that need semantic review. `--report <path>` writes it to a file.
 
 `npm run e2e:model` drives a real model over RPC and plays the human at the dialogs. The second turn asks for one `codemode` script that writes two files outside the workspace, so it covers the program-sized grant: one approval, both writes, and the run-scoped mode that expires with the script. It needs provider credentials and spends two turns.
+
+`npm run check:shape` compares each replacement tool definition with pi's own: key sets must match, only the declared overrides may differ, and `parameters` must equal pi's after the escalation fields are removed. It drives itself with three synthetic drifts, so it fails loudly if it ever stops detecting. `ci.yml` runs it against the pinned pi package.
 
 `npm test` also runs behavior-parity tests against the same checkout: they import the dsh functions and compare the writable roots, path containment, the escalation strings, and the bubblewrap and Seatbelt profiles. They skip when no checkout exists.
 
