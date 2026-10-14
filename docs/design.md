@@ -26,7 +26,7 @@
 - **Extended**: the port adds behavior dsh does not have at that anchor.
 - **Not ported**: the dsh feature is absent here, and the table names the consequence.
 
-The dsh anchors below were read from the `deepseek-harness` checkout at commit `5badb15009`. The pi behavior was verified against `pi-dsh-sandbox` at `7f7327d`. dsh paths are relative to the `deepseek-harness` root; pi paths are relative to this repository root. The dsh tree moves, so re-check a path and symbol before relying on it, and cite the commit when a divergence matters. Anchors for tooling live beside this document in [`anchors-dsh.json`](anchors-dsh.json) and [`anchors-pi.json`](anchors-pi.json); the table in chapter 5 is the readable view, and both are updated in the same change.
+The dsh anchors below were read from the `deepseek-harness` checkout at commit `d743267388`. The pi behavior was verified against `pi-dsh-sandbox` at `9a872cb`. dsh paths are relative to the `deepseek-harness` root; pi paths are relative to this repository root. The dsh tree moves, so re-check a path and symbol before relying on it, and cite the commit when a divergence matters. Anchors for tooling live beside this document in [`anchors-dsh.json`](anchors-dsh.json) and [`anchors-pi.json`](anchors-pi.json); the table in chapter 5 is the readable view, and both are updated in the same change.
 
 ## 3. Goals and non-goals
 
@@ -134,8 +134,8 @@ Escalation also has a program-sized tier, ported from dsh's `run_code`: the `cod
 | Writable roots | `packages/sandbox/sandbox/src/roots.ts` (`canonicalPath`, `writableRoots`) | `src/roots.ts` | Ported verbatim; one derivation shared by the fence and the bubblewrap profile. |
 | Filesystem fence | `packages/fs/fs-sandbox/src/index.ts` (`SandboxedFileSystem.checkedTarget`) | `src/fence.ts` | Ported, including the re-canonicalize-before-write window. |
 | Path containment | `packages/fs/fs-sandbox/src/containment.ts` (`isPathUnder`) | `src/containment.ts` | Ported. |
-| Per-call policy resolution | `packages/fs/tool-fs/src/sandbox.ts` (`FsSandboxController.resolvePolicy`) | `src/calls.ts` | Ported precedence. |
-| Write and edit tools | `packages/fs/tool-fs/src/write.ts`, `edit.ts` | `src/fstools.ts` | Ported for the two mutations; reads and listings pass through. |
+| Per-call policy resolution | `packages/fs/tool-fs/src/sandbox.ts` (`FsSandboxController.resolvePolicy`) | `src/calls.ts` | Ported precedence; the workspace root stays the session-start cwd because pi has no working-directory service (reviewed at `d743267388`). |
+| Write and edit tools | `packages/fs/tool-fs/src/write.ts`, `edit.ts` | `src/fstools.ts` | Ported for the two mutations; reads and listings pass through, and path resolution plus results come from pi rather than dsh's tool layer (reviewed at `d743267388`). |
 | Escalation vocabulary | `packages/sandbox/sandbox/src/escalation.ts` | `src/escalation.ts`, `src/schema.ts`, `src/dialog-queue.ts` | Ported verbatim for the strings; the approval channel substitutes `ctx.ui.select` for `ctx.approval`, and a queue spaces concurrent asks because pi holds one dialog slot and settles no dialog it replaces. |
 | Program-level escalation (PTC `run_code`) | `packages/core/tools/src/ptc.ts` (`RUN_CODE_CONTROLS`, `escalationGuidance`, `subject: 'program'`) | `src/codemode.ts`, `src/run-grant.ts` | Ported for the fields, the one-shot grant, the denial guidance, and the retry flow; divergence: the grant rides the run's nested calls because pi's codemode has no effects of its own (ch. 4.3). |
 | Bash family | `packages/shell/bash-sandbox/src/index.ts` | `src/bash.ts` | Ported; the pi seams are the `bash` tool override and `user_bash`. |

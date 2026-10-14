@@ -1,7 +1,7 @@
 {
   "upstream": "dsh",
   "design": "docs/design.md",
-  "recordedRef": "5badb15009",
+  "recordedRef": "d743267388",
   "dshPathsRelativeTo": "deepseek-harness repository root",
   "piPathsRelativeTo": "this repository root",
   "symbolMeans": "a substring that must appear in the file at recordedRef; null means the whole file",
@@ -66,7 +66,7 @@
       "pi": [{ "path": "src/calls.ts", "symbol": "resolveCallPolicy" }],
       "result": "ported",
       "parity": null,
-      "note": "grant outranks session override, which outranks the deployment default"
+      "note": "grant outranks session override, which outranks the deployment default; reviewed at d743267388, where dsh rewrote the workspace-root sentence (the original Session directory, or the deployment fallback) and resolves paths through its working-directory service — pi has no such service, so the port keeps the session-start cwd plus the configured fallback (ch. 4.2)"
     },
     {
       "id": "write-edit-tools",
@@ -79,7 +79,7 @@
       "pi": [{ "path": "src/fstools.ts", "symbol": "fencedWriteOps" }],
       "result": "ported",
       "parity": null,
-      "note": "the two mutations are fenced; reads and listings pass through"
+      "note": "the two mutations are fenced; reads and listings pass through; reviewed at d743267388, where dsh moved path resolution to its working-directory service and the result shape into mutation-result.ts — the port takes both from pi and fences only the operations, so neither move reaches it"
     },
     {
       "id": "escalation-vocabulary",
