@@ -102,7 +102,7 @@
     },
     {
       "id": "program-escalation",
-      "behavior": "Program-level escalation on the program-running tool (PTC `run_code`)",
+      "behavior": "Program-level escalation (PTC `run_code`)",
       "contract": true,
       "dsh": [
         { "path": "packages/core/tools/src/ptc.ts", "symbol": "RUN_CODE_CONTROLS" },
