@@ -21,6 +21,7 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { registerBashTool } from "./src/bash.ts";
+import { registerCodemode } from "./src/codemode.ts";
 import { registerFsTools } from "./src/fstools.ts";
 import { SANDBOX_MODES, isConfined, isSandboxMode, type SandboxMode } from "./src/modes.ts";
 import { MODE_ENTRY, STATUS_KEY, SandboxState } from "./src/state.ts";
@@ -139,6 +140,7 @@ export default function dshSandbox(pi: ExtensionAPI): void {
   if (confinementMounted) {
     registerBashTool(pi, state);
     registerFsTools(pi, state);
+    registerCodemode(pi, state);
   }
   pi.on("session_start", async (_event, ctx) => {
     state.beginSession(ctx);

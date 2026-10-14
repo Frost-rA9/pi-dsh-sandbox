@@ -31,6 +31,7 @@ import { Type } from "typebox";
 import { resolveCallPolicy, type EscalationArgs } from "./calls.ts";
 import { escalationHintMarker, sandboxDenialMarker, DENIAL_MARKER_PREFIX } from "./escalation.ts";
 import { escalationSchemaFields } from "./schema.ts";
+import { markRunDenied } from "./run-grant.ts";
 import { checkedTarget } from "./fence.ts";
 import type { Policy } from "./modes.ts";
 import type { SandboxState } from "./state.ts";
@@ -61,6 +62,12 @@ function mapFsError(error: unknown, policy: Policy): unknown {
   if (markerAt > 0) return new Error(message.slice(markerAt));
   if (!message.includes("FS_SANDBOX_DENIED")) return error;
   return new Error(`${sandboxDenialMarker(policy.mode)}\n${escalationHintMarker(SUBJECT)}`);
+}
+
+/** Whether a mapped failure carries the shared denial vocabulary. */
+function isFsDenial(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes(DENIAL_MARKER_PREFIX) || message.includes("FS_SANDBOX_DENIED");
 }
 
 /** The policy of the mutation currently running (set per tool call). */
@@ -146,13 +153,16 @@ export function registerFsTools(pi: ExtensionAPI, state: SandboxState): void {
       { ui: ctx.ui, hasUI: ctx.hasUI, signal },
       toolName,
       SUBJECT,
+      toolCallId,
     );
     try {
       return await fencePolicy.run(policy, () =>
         (base.execute as (...args: unknown[]) => Promise<T>)(toolCallId, params, signal, onUpdate, ctx),
       );
     } catch (error: unknown) {
-      throw mapFsError(error, policy);
+      const mapped = mapFsError(error, policy);
+      if (policy.mode !== "danger-full-access" && isFsDenial(mapped)) markRunDenied(toolCallId);
+      throw mapped;
     }
   };
 

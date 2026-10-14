@@ -27,6 +27,7 @@ import { SandboxUnavailableError } from "./backend.ts";
 import { resolveCallPolicy } from "./calls.ts";
 import { escalationHintMarker, sandboxDenialMarker } from "./escalation.ts";
 import { escalationSchemaFields } from "./schema.ts";
+import { markRunDenied } from "./run-grant.ts";
 import type { Policy } from "./modes.ts";
 import { execPolicy, type SandboxState } from "./state.ts";
 
@@ -98,15 +99,23 @@ function resultText(result: ToolResultLike): string {
  *
  * @param result The base tool result.
  * @param policy The policy the command ran under.
+ * @param confiner The backend that recognizes its own denial dialect.
+ * @param onDenied Called when the result really is a confinement denial.
  * @returns The result the model receives.
  */
-export function annotateBashResult<T extends ToolResultLike>(result: T, policy: Policy, confiner: Confiner | undefined): T {
+export function annotateBashResult<T extends ToolResultLike>(
+  result: T,
+  policy: Policy,
+  confiner: Confiner | undefined,
+  onDenied?: () => void,
+): T {
   if (policy.mode === "danger-full-access" || result.isError !== true || confiner === undefined) return result;
   const text = resultText(result);
   if (confiner.matchesRunnerFailure(text)) {
     throw new SandboxUnavailableError(policy.mode, text.split("\n").find((line) => confiner.matchesRunnerFailure(line)) ?? text);
   }
   if (!confiner.matchesDenial(text)) return result;
+  onDenied?.();
   const annotated = `${sandboxDenialMarker(policy.mode)}\n${escalationHintMarker(SUBJECT)}\n\n${text}`;
   const structuredContent =
     typeof result.structuredContent === "object" && result.structuredContent !== null
@@ -153,6 +162,7 @@ export function registerBashTool(pi: ExtensionAPI, state: SandboxState): void {
         { ui: ctx.ui, hasUI: ctx.hasUI, signal },
         "bash",
         SUBJECT,
+        toolCallId,
       );
       const result = await execPolicy.run(policy, () =>
         (base.execute as unknown as (...args: unknown[]) => Promise<ToolResultLike>)(
@@ -163,7 +173,7 @@ export function registerBashTool(pi: ExtensionAPI, state: SandboxState): void {
           ctx,
         ),
       );
-      return annotateBashResult(result, policy, state.confiner);
+      return annotateBashResult(result, policy, state.confiner, () => markRunDenied(toolCallId));
     },
   } as unknown as ToolDefinition);
 

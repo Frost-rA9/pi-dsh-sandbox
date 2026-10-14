@@ -35,3 +35,29 @@ export function escalationSchemaFields(subject: string) {
     ),
   };
 }
+
+/**
+ * The schema fields on the program-running tool, with dsh's `run_code` texts
+ * verbatim (dsh `packages/core/tools/src/ptc.ts`, `RUN_CODE_CONTROLS`). dsh
+ * words this pair for a whole program rather than a single action, so it does
+ * not use {@link escalationSchemaFields}'s per-action template.
+ *
+ * @returns The two program escalation parameter specs.
+ */
+export function programEscalationSchemaFields() {
+  return {
+    sandbox_permissions: Type.Optional(
+      Type.Union(
+        ESCALATION_TARGETS.map((target) => Type.Literal(target)),
+        { description: "Wider sandbox mode for this complete program execution; requires justification and approval." },
+      ),
+    ),
+    justification: Type.Optional(
+      Type.String({
+        description:
+          "Reason this complete program needs wider access, shown to the user for approval. "
+          + "Use the language of the user's current request.",
+      }),
+    ),
+  };
+}

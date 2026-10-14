@@ -95,6 +95,8 @@ Resolution precedence is dsh's: an approved grant outranks the session override,
 > **Fallback:** the denial stands, and the model explains instead of working around it.
 
 pi has no approval service, so the channel is `ctx.ui.select`; every model-facing string around it is dsh's. pi's interactive UI also holds a single extension-dialog slot and never settles a dialog a later call replaces, so the extension spaces concurrent asks through a queue (`src/dialog-queue.ts`): the requests stay pending, one opens at a time in arrival order, and each carries the call's abort signal. The spacing is a pi host adaptation with no dsh counterpart — dsh keeps every request alive in its client registry and projects one of them at a time.
+Escalation also has a program-sized tier, ported from dsh's `run_code`: the `codemode` tool carries the same two fields, one approval covers the calls a script makes, and the granted mode dies with the run (`src/codemode.ts`, `src/run-grant.ts`). dsh confines the program's own process with that mode while nested tool calls keep their own policies and approvals; pi's codemode has no process and reaches the outside only through tools, so the grant rides the run's nested calls instead. That coverage is the one recorded divergence (ch. 5). A nested request strictly wider than the grant still asks on its own, and a run that hit a denial reports dsh's guidance paragraph, so the model knows the one-shot grant exists and that earlier effects may already have completed.
+
 
 ### 4.4 The policy reaches the model on a switch
 
@@ -135,6 +137,7 @@ pi has no approval service, so the channel is `ctx.ui.select`; every model-facin
 | Per-call policy resolution | `packages/fs/tool-fs/src/sandbox.ts` (`FsSandboxController.resolvePolicy`) | `src/calls.ts` | Ported precedence. |
 | Write and edit tools | `packages/fs/tool-fs/src/write.ts`, `edit.ts` | `src/fstools.ts` | Ported for the two mutations; reads and listings pass through. |
 | Escalation vocabulary | `packages/sandbox/sandbox/src/escalation.ts` | `src/escalation.ts`, `src/schema.ts`, `src/dialog-queue.ts` | Ported verbatim for the strings; the approval channel substitutes `ctx.ui.select` for `ctx.approval`, and a queue spaces concurrent asks because pi holds one dialog slot and settles no dialog it replaces. |
+| Program-level escalation (PTC `run_code`) | `packages/core/tools/src/ptc.ts` (`RUN_CODE_CONTROLS`, `escalationGuidance`, `subject: 'program'`) | `src/codemode.ts`, `src/run-grant.ts` | Ported for the fields, the one-shot grant, the denial guidance, and the retry flow; divergence: the grant rides the run's nested calls because pi's codemode has no effects of its own (ch. 4.3). |
 | Bash family | `packages/shell/bash-sandbox/src/index.ts` | `src/bash.ts` | Ported; the pi seams are the `bash` tool override and `user_bash`. |
 | Bubblewrap profile | `packages/sandbox/sandbox-local/src/profiles.ts` (`bwrapProfileArgs`) | `src/bwrap.ts` | Ported; the Landlock rung from the same file is not. |
 | Seatbelt profile | `packages/sandbox/sandbox-local/src/profiles.ts` (`seatbeltProfileArgs`) | `src/seatbelt.ts` | Ported, including the dialect probe. |

@@ -43,6 +43,8 @@ const outside = outsideRoot === undefined ? "" : join(outsideRoot, `pi-dsh-model
 const rows = [];
 const record = (name, ok, detail = "") => rows.push([ok ? "PASS" : "FAIL", name, detail]);
 const recordSkip = (name, why) => rows.push(["SKIP", name, why]);
+/** The second scenario's fixtures, filled in before its turn and removed at the end. */
+let programTargets = [];
 
 
 
@@ -279,12 +281,53 @@ try {
     modeEntries.at(-1) === "workspace-write",
     `dsh-sandbox-mode entries: [${modeEntries.join(", ")}]`,
   );
+
+  // The program-sized tier: ONE codemode script, two writes outside the
+  // workspace, ONE approval covering the whole run.
+  observed.approvals.length = 0;
+  observed.selects.length = 0;
+  observed.toolEnds.length = 0;
+  programTargets = [
+    join(outsideRoot, `pi-dsh-program-a-${process.pid}.txt`),
+    join(outsideRoot, `pi-dsh-program-b-${process.pid}.txt`),
+  ];
+  const programPrompt =
+    `Run ONE codemode call whose script writes "program-a" into ${programTargets[0]} and "program-b" into ${programTargets[1]} `
+    + "(both outside my workspace). Both writes must happen inside that single script. "
+    + "If the script is refused, follow the refusal's guidance for the whole program: rerun the complete script with "
+    + "codemode's sandbox_permissions and justification.";
+  const programTurn = send({ type: "prompt", message: programPrompt }, TURN_TIMEOUT_MS);
+  await waitSettled();
+  await programTurn;
+
+  const codemodeCalls = observed.toolEnds.filter((end) => end.tool === "codemode");
+  record(
+    "codemode: the model ran the script",
+    codemodeCalls.length > 0,
+    codemodeCalls.map((end) => (end.isError ? "error" : "ok")).join(", ") || "no codemode call",
+  );
+  record(
+    "codemode: one approval covered the whole run",
+    observed.approvals.length === 1,
+    `approvals=${observed.approvals.length} ${observed.approvals[0] ?? ""}`.trim(),
+  );
+  if (outsideRoot === undefined) {
+    recordSkip("codemode: both script writes reached the outer paths", "no usable outside root on this host");
+  } else {
+    const written = programTargets.map((target) => (existsSync(target) ? readFileSync(target, "utf-8").trim() : ""));
+    record(
+      "codemode: both script writes reached the outer paths",
+      written[0] === "program-a" && written[1] === "program-b",
+      `a=${JSON.stringify(written[0])} b=${JSON.stringify(written[1])}`,
+    );
+  }
 } catch (error) {
   record("unexpected failure", false, String(error));
 } finally {
   child.stdin.end();
   child.kill("SIGKILL");
   rmSync(outside, { force: true });
+  for (const target of programTargets) rmSync(target, { force: true });
   rmSync(workspace, { recursive: true, force: true });
   rmSync(agentDir, { recursive: true, force: true });
   if (outsideRoot !== undefined) {

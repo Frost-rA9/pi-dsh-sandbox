@@ -112,9 +112,9 @@ async function buildSession(cwd, extensionFlagValues) {
 }
 
 /** Invoke one tool definition and normalize throw/return into a result. */
-async function call(tool, params, ctx) {
+async function call(tool, params, ctx, toolCallId = `call-${Math.random().toString(36).slice(2)}`) {
   try {
-    const result = await tool.execute(`call-${Math.random().toString(36).slice(2)}`, params, undefined, undefined, ctx);
+    const result = await tool.execute(toolCallId, params, undefined, undefined, ctx);
     return { ok: true, result };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : String(error) };
@@ -316,6 +316,118 @@ try {
   } finally {
     roSession.dispose();
     rmSync(readOnly, { recursive: true, force: true });
+  }
+
+  // ---------------------------------------------------------------- phase C —
+  // The program-level grant: one approval covers a whole codemode run.
+  const programWorkspace = mkdtempSync(join(tmpdir(), "pi-dsh-tools-program-"));
+  const { session: programSession } = await buildSession(programWorkspace, undefined);
+  try {
+    const write = programSession.getToolDefinition("write");
+    const codemode = programSession.getToolDefinition("codemode");
+    const properties = codemode?.parameters?.properties ?? {};
+    record(
+      "codemode: the replacement carries the program escalation fields",
+      codemode !== undefined && "sandbox_permissions" in properties && "justification" in properties,
+      codemode === undefined ? "codemode is not registered" : Object.keys(properties).join(","),
+    );
+
+    // codemode rewrites its own description from the loadout, so the guidance
+    // must survive that projection to reach the model.
+    const loadout = {
+      declared: [],
+      callable: [],
+      registered: [],
+      getExposure: () => "direct",
+      getNamespace: () => undefined,
+      getPromptGuidelines: () => [],
+    };
+    const projected = codemode?.prepareLoadout?.(loadout)?.descriptions?.codemode ?? "";
+    record(
+      "codemode: the projected description carries the program guidance",
+      /Nested tools retain their own policies and approvals/.test(projected),
+      projected === "" ? "no projected description" : "",
+    );
+
+    if (outsideRoot === undefined || codemode === undefined || write === undefined) {
+      recordSkip("codemode: one approval covers every nested call of the run", "no usable outside root on this host");
+      recordSkip("codemode: a denied run reports the program guidance", "no usable outside root on this host");
+      recordSkip("codemode: the grant does not outlive its run", "no usable outside root on this host");
+    } else {
+      const textOf = (result) => (result?.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n");
+      let dialogs = 0;
+      let nested = 0;
+      let runId = "";
+      const programContext = {
+        cwd: programWorkspace,
+        hasUI: true,
+        mode: "print",
+        ui: {
+          ...stubUi,
+          select: async () => { dialogs += 1; return "Allow once"; },
+          confirm: async () => false,
+        },
+        sessionManager: SessionManager.inMemory(),
+        modelRegistry: {},
+        tools: [{ name: "write", description: write.description, parameters: write.parameters }],
+        executeTool: async (name, args) => {
+          const toolCall = { type: "toolCall", id: `${runId}/${++nested}`, name, arguments: args };
+          const outcome = await call(programSession.getToolDefinition(name), args, programContext, toolCall.id);
+          return {
+            toolCall,
+            result: outcome.ok ? outcome.result : { content: [{ type: "text", text: outcome.message }], details: {} },
+            isError: !outcome.ok,
+          };
+        },
+      };
+      const run = (code, params, toolCallId) => {
+        runId = toolCallId;
+        return call(codemode, { code, ...params }, programContext, toolCallId);
+      };
+
+      const targets = [join(outsideRoot, "program-a.txt"), join(outsideRoot, "program-b.txt")];
+      const approved = await run(
+        `await tools.write({ path: ${JSON.stringify(targets[0])}, content: "a" });\n`
+        + `await tools.write({ path: ${JSON.stringify(targets[1])}, content: "b" });\n`
+        + `return "done";`,
+        { sandbox_permissions: "danger-full-access", justification: "integration check" },
+        "program-run",
+      );
+      record(
+        "codemode: one approval covers every nested call of the run",
+        approved.ok && dialogs === 1 && nested === 2
+          && readFileSync(targets[0], "utf-8") === "a" && readFileSync(targets[1], "utf-8") === "b",
+        `ok=${approved.ok} dialogs=${dialogs} nested=${nested}${approved.ok ? "" : ` ${approved.message.split("\n")[0]}`}`,
+      );
+
+      dialogs = 0;
+      const deniedTarget = join(outsideRoot, "program-c.txt");
+      const denied = await run(
+        `try { await tools.write({ path: ${JSON.stringify(deniedTarget)}, content: "c" }); return "wrote"; }\n`
+        + `catch (error) { return String(error); }`,
+        {},
+        "program-denied",
+      );
+      record(
+        "codemode: a denied run reports the program guidance",
+        denied.ok && dialogs === 0 && !existsSync(deniedTarget)
+          && /Nested tools retain their own policies and approvals/.test(textOf(denied.result)),
+        denied.ok
+          ? `dialogs=${dialogs} guidance=${/Nested tools retain their own policies and approvals/.test(textOf(denied.result))}`
+          : denied.message.split("\n")[0],
+      );
+
+      const lateTarget = join(outsideRoot, "program-late.txt");
+      const late = await call(write, { path: lateTarget, content: "x" }, programContext, "program-run/99");
+      record(
+        "codemode: the grant does not outlive its run",
+        !late.ok && !existsSync(lateTarget),
+        late.ok ? "unexpectedly allowed" : late.message.split("\n")[0],
+      );
+    }
+  } finally {
+    programSession.dispose();
+    rmSync(programWorkspace, { recursive: true, force: true });
   }
 
 } catch (error) {

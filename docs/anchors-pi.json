@@ -48,7 +48,7 @@
       "seam": "the { operations } option on the built-in tool factories",
       "declaration": "dist/core/tools/bash.d.ts",
       "symbol": "operations",
-      "usage": ["src/bash.ts", "src/fstools.ts"],
+      "usage": ["src/bash.ts", "src/fstools.ts", "src/codemode.ts"],
       "evidence": "package-export",
       "coveredBy": "npm run check; npm run e2e (confined bash and fence)",
       "risk": "the single attachment point for both enforcement families"
@@ -114,6 +114,16 @@
       "risk": "the tier-switch notice"
     },
     {
+      "id": "codemode-takeover",
+      "seam": "createCodemodeExtension + same-name registerTool replacement + prepareLoadout descriptions",
+      "declaration": "dist/extensions/codemode/index.d.ts",
+      "symbol": "createCodemodeExtension",
+      "usage": ["src/codemode.ts"],
+      "evidence": "package-export",
+      "coveredBy": "npm run check; npm run check:tools (the codemode phase asserts the escalation fields, one dialog per run, and the guidance)",
+      "risk": "the program-level escalation fields, the one-shot run grant, and the guidance text the model reads"
+    },
+    {
       "id": "dialogs",
       "seam": "ExtensionContext.ui.select + ui.confirm + hasUI, with ExtensionUIDialogOptions.signal",
       "declaration": "dist/core/extensions/types.d.ts",
@@ -148,7 +158,7 @@
       "seam": "ExtensionToolContext with ui, hasUI, and cwd",
       "declaration": "dist/core/extensions/types.d.ts",
       "symbol": "ExtensionToolContext",
-      "usage": ["src/bash.ts", "src/fstools.ts"],
+      "usage": ["src/bash.ts", "src/fstools.ts", "src/codemode.ts"],
       "evidence": "documented-api",
       "coveredBy": "npm run check",
       "risk": "per-call escalation approval and workspace resolution"

@@ -12,6 +12,7 @@
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
 import { approveEscalation, validateEscalationArgs } from "./escalation.ts";
 import type { Policy } from "./modes.ts";
+import { runModeFor } from "./run-grant.ts";
 import type { SandboxState } from "./state.ts";
 
 /** The two escalation arguments a mutating tool may carry. */
@@ -28,6 +29,7 @@ export interface EscalationArgs {
  * @param channel The approval channel (pi's extension UI and the call's abort signal).
  * @param toolName The tool name, for the approval prompt.
  * @param subject The family's noun for the denied action.
+ * @param toolCallId The call's id, so a codemode run's grant can be found.
  * @returns The per-call policy.
  */
 export async function resolveCallPolicy(
@@ -36,18 +38,24 @@ export async function resolveCallPolicy(
   channel: { ui: ExtensionUIContext; hasUI: boolean; signal?: AbortSignal },
   toolName: string,
   subject: string,
+  toolCallId?: string,
 ): Promise<Policy> {
   validateEscalationArgs(args.sandbox_permissions, args.justification);
   const standing = state.resolve();
-  if (args.sandbox_permissions === undefined) return standing;
+  // A call inside a codemode run resolves to the mode that run was granted,
+  // which is dsh's one-shot program policy carried to the calls pi's codemode
+  // makes in its place (docs/design.md chapter 4.3).
+  const runMode = runModeFor(toolCallId);
+  const base = runMode === undefined ? standing : { ...standing, mode: runMode };
+  if (args.sandbox_permissions === undefined) return base;
   const granted = await approveEscalation(
     {
       requestedMode: args.sandbox_permissions,
       justification: args.justification as string,
-      effectiveMode: standing.mode,
+      effectiveMode: base.mode,
       subject,
     },
     { ui: channel.ui, hasUI: channel.hasUI, toolName, signal: channel.signal },
   );
-  return { ...standing, mode: granted };
+  return { ...base, mode: granted };
 }

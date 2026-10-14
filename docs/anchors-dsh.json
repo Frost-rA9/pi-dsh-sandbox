@@ -101,6 +101,23 @@
       "note": "strings verbatim; the approval channel substitutes ctx.ui.select for ctx.approval"
     },
     {
+      "id": "program-escalation",
+      "behavior": "Program-level escalation on the program-running tool (PTC `run_code`)",
+      "contract": true,
+      "dsh": [
+        { "path": "packages/core/tools/src/ptc.ts", "symbol": "RUN_CODE_CONTROLS" },
+        { "path": "packages/core/tools/src/ptc.ts", "symbol": "escalationGuidance" },
+        { "path": "packages/core/tools/src/ptc.ts", "symbol": "subject: 'program'" }
+      ],
+      "pi": [
+        { "path": "src/codemode.ts", "symbol": "registerCodemode" },
+        { "path": "src/run-grant.ts", "symbol": "beginRun" }
+      ],
+      "result": "extended",
+      "parity": { "status": "planned", "test": "tests/escalation-parity.test.ts" },
+      "note": "fields and guidance verbatim; dsh confines the program's own process, pi's codemode has no process, so the one-shot grant rides the run's nested calls instead (ch. 4.3)"
+    },
+    {
       "id": "bash-family",
       "behavior": "Bash family",
       "contract": true,

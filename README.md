@@ -96,6 +96,11 @@ cancelled prompt, or a missing dialog channel keeps the denial. Concurrent asks
 wait in a queue and open one at a time, so a second escalation cannot replace an
 open prompt.
 
+A `codemode` script may ask for the wider mode for its whole run:
+`sandbox_permissions` and `justification` on the `codemode` call cover every
+call the script makes, and the grant ends with the run. A run whose calls were
+denied reports what the one-shot grant is for.
+
 ## Configuration
 
 Global settings live at `<agentDir>/extensions/pi-dsh-sandbox.json`, where
@@ -138,10 +143,12 @@ npm run check:anchors # dsh and pi anchor drift checks
 npm run inspect       # Tool schemas, no model call
 npm run e2e           # Real pi over RPC: bash and ! enforcement
 npm run check:tools   # Fence and escalation inside a tool execution
-npm run e2e:model     # One live model turn, denial to approved retry
+npm run e2e:model     # Two live model turns: per-call retry, then one program-sized approval
 ```
 
 `npm run check:anchors` verifies the dsh and pi anchors in `docs/`, using `PI_DSH_ROOT` (or `--dsh`) when a `deepseek-harness` checkout exists. `--to <ref>` produces a drift report for a new dsh ref: mechanical drift with the changed literals, plus the anchors that need semantic review. `--report <path>` writes it to a file.
+
+`npm run e2e:model` drives a real model over RPC and plays the human at the dialogs. The second turn asks for one `codemode` script that writes two files outside the workspace, so it covers the program-sized grant: one approval, both writes, and the run-scoped mode that expires with the script. It needs provider credentials and spends two turns.
 
 `npm test` also runs behavior-parity tests against the same checkout: they import the dsh functions and compare the writable roots, path containment, the escalation strings, and the bubblewrap and Seatbelt profiles. They skip when no checkout exists.
 
