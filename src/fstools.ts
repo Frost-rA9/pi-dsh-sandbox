@@ -27,10 +27,9 @@ import type {
   WriteOperations,
 } from "@earendil-works/pi-coding-agent";
 import { createEditToolDefinition, createWriteToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
 import { resolveCallPolicy, type EscalationArgs } from "./calls.ts";
 import { escalationHintMarker, sandboxDenialMarker, DENIAL_MARKER_PREFIX } from "./escalation.ts";
-import { escalationSchemaFields } from "./schema.ts";
+import { escalationParameters } from "./schema.ts";
 import { markRunDenied } from "./run-grant.ts";
 import { checkedTarget } from "./fence.ts";
 import type { Policy } from "./modes.ts";
@@ -168,11 +167,7 @@ export function registerFsTools(pi: ExtensionAPI, state: SandboxState): void {
 
   pi.registerTool({
     ...writeBase,
-    parameters: Type.Object({
-      path: Type.String({ description: "Path to the file to write (relative or absolute)" }),
-      content: Type.String({ description: "Content to write to the file" }),
-      ...escalationSchemaFields(SUBJECT),
-    }),
+    parameters: escalationParameters(writeBase.parameters, SUBJECT),
     execute: (
       toolCallId: string,
       params: WriteParams,
@@ -184,21 +179,7 @@ export function registerFsTools(pi: ExtensionAPI, state: SandboxState): void {
 
   pi.registerTool({
     ...editBase,
-    parameters: Type.Object({
-      path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
-      edits: Type.Array(
-        Type.Object({
-          oldText: Type.String({ description: "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call." }),
-          newText: Type.String({ description: "Replacement text for this targeted edit." }),
-        }),
-        {
-          description:
-            "One or more targeted replacements. Each edit is matched against the original file, not incrementally. "
-            + "Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead.",
-        },
-      ),
-      ...escalationSchemaFields(SUBJECT),
-    }),
+    parameters: escalationParameters(editBase.parameters, SUBJECT),
     execute: (
       toolCallId: string,
       params: EditParams,

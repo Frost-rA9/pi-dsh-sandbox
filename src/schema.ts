@@ -7,6 +7,7 @@
  * @module pi-dsh-sandbox/schema
  */
 
+import type { TSchema } from "typebox";
 import { Type } from "typebox";
 import { ESCALATION_TARGETS, sandboxPermissionsDescription } from "./escalation.ts";
 
@@ -34,6 +35,24 @@ export function escalationSchemaFields(subject: string) {
       }),
     ),
   };
+}
+
+/**
+ * A confined tool's parameter schema: pi's own schema with the escalation
+ * fields added on top, so a pi release that changes the tool's parameters
+ * reaches the model without a hand copy drifting behind it. `scripts/
+ * check-tool-shape.mjs` fails when the two disagree.
+ *
+ * @param base pi's definition parameters.
+ * @param subject The family's noun for the denied action.
+ * @returns The schema the tool registers.
+ */
+export function escalationParameters(base: TSchema, subject: string): TSchema {
+  const properties = (base as { properties?: Record<string, unknown> }).properties ?? {};
+  return {
+    ...base,
+    properties: { ...properties, ...escalationSchemaFields(subject) },
+  } as unknown as TSchema;
 }
 
 /**

@@ -21,12 +21,11 @@ import type {
   ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import { createBashToolDefinition, createLocalBashOperations, getShellConfig } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
 import type { Confiner } from "./backend.ts";
 import { SandboxUnavailableError } from "./backend.ts";
 import { resolveCallPolicy } from "./calls.ts";
 import { escalationHintMarker, sandboxDenialMarker } from "./escalation.ts";
-import { escalationSchemaFields } from "./schema.ts";
+import { escalationParameters } from "./schema.ts";
 import { markRunDenied } from "./run-grant.ts";
 import type { Policy } from "./modes.ts";
 import { execPolicy, type SandboxState } from "./state.ts";
@@ -144,11 +143,7 @@ export function registerBashTool(pi: ExtensionAPI, state: SandboxState): void {
 
   pi.registerTool({
     ...base,
-    parameters: Type.Object({
-      command: Type.String({ description: "Shell command to execute (run through bash -c)" }),
-      timeout: Type.Optional(Type.Number({ description: "Timeout in seconds" })),
-      ...escalationSchemaFields(SUBJECT),
-    }),
+    parameters: escalationParameters(base.parameters, SUBJECT),
     async execute(
       toolCallId: string,
       params: { command: string; timeout?: number; sandbox_permissions?: string; justification?: string },
