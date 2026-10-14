@@ -25,7 +25,7 @@ export interface EscalationArgs {
  *
  * @param state The session sandbox state.
  * @param args The call's escalation arguments.
- * @param channel The approval channel (pi's extension UI).
+ * @param channel The approval channel (pi's extension UI and the call's abort signal).
  * @param toolName The tool name, for the approval prompt.
  * @param subject The family's noun for the denied action.
  * @returns The per-call policy.
@@ -33,7 +33,7 @@ export interface EscalationArgs {
 export async function resolveCallPolicy(
   state: SandboxState,
   args: EscalationArgs,
-  channel: { ui: ExtensionUIContext; hasUI: boolean },
+  channel: { ui: ExtensionUIContext; hasUI: boolean; signal?: AbortSignal },
   toolName: string,
   subject: string,
 ): Promise<Policy> {
@@ -47,7 +47,7 @@ export async function resolveCallPolicy(
       effectiveMode: standing.mode,
       subject,
     },
-    { ui: channel.ui, hasUI: channel.hasUI, toolName },
+    { ui: channel.ui, hasUI: channel.hasUI, toolName, signal: channel.signal },
   );
   return { ...standing, mode: granted };
 }

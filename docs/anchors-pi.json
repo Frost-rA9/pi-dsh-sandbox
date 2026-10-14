@@ -2,7 +2,7 @@
   "upstream": "pi",
   "design": "docs/design.md",
   "package": "@earendil-works/pi-coding-agent",
-  "recordedVersion": "1.1.0",
+  "recordedVersion": "1.2.0",
   "declarationsRelativeTo": "the installed package root",
   "piPathsRelativeTo": "this repository root",
   "evidenceLabels": ["documented-api", "documented-behavior", "observed-behavior", "package-export"],
@@ -115,13 +115,13 @@
     },
     {
       "id": "dialogs",
-      "seam": "ExtensionContext.ui.select + ui.confirm + hasUI",
+      "seam": "ExtensionContext.ui.select + ui.confirm + hasUI, with ExtensionUIDialogOptions.signal",
       "declaration": "dist/core/extensions/types.d.ts",
       "symbol": "select",
-      "usage": ["index.ts", "src/escalation.ts"],
+      "usage": ["index.ts", "src/escalation.ts", "src/dialog-queue.ts"],
       "evidence": "documented-api",
-      "coveredBy": "npm run check; npm run check:tools covers the escalation approval with a stub channel",
-      "risk": "the picker, the full-access confirmation, and the escalation approval"
+      "coveredBy": "npm run check; npm test (dialog-queue); npm run check:tools covers the escalation approval with a stub channel and two parallel asks",
+      "risk": "the picker, the full-access confirmation, and the serialized escalation approvals"
     },
     {
       "id": "status",

@@ -150,7 +150,7 @@ export function registerBashTool(pi: ExtensionAPI, state: SandboxState): void {
       const policy = await resolveCallPolicy(
         state,
         params,
-        { ui: ctx.ui, hasUI: ctx.hasUI },
+        { ui: ctx.ui, hasUI: ctx.hasUI, signal },
         "bash",
         SUBJECT,
       );

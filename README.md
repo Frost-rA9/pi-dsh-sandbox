@@ -92,7 +92,9 @@ The same result tells the model to retry that exact operation with
 `sandbox_permissions` and a one-sentence `justification`.
 
 pi asks you to approve, and the grant covers that single call. A rejection, a
-cancelled prompt, or a missing dialog channel keeps the denial.
+cancelled prompt, or a missing dialog channel keeps the denial. Concurrent asks
+wait in a queue and open one at a time, so a second escalation cannot replace an
+open prompt.
 
 ## Configuration
 

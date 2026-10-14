@@ -224,6 +224,45 @@ try {
       !malformed.ok && /sandbox_permissions requires a justification/.test(malformed.message),
       malformed.ok ? "unexpectedly allowed" : malformed.message.split("\n")[0],
     );
+
+    // pi's interactive UI holds one extension-dialog slot, so the extension
+    // queues concurrent approvals instead of letting the second dialog replace
+    // the first. Both calls must settle, one dialog at a time.
+    let openDialogs = 0;
+    let peakDialogs = 0;
+    const parallelContext = {
+      cwd: workspace,
+      hasUI: true,
+      ui: {
+        ...stubUi,
+        select: async () => {
+          openDialogs += 1;
+          peakDialogs = Math.max(peakDialogs, openDialogs);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          openDialogs -= 1;
+          return "Allow once";
+        },
+      },
+    };
+    const [parallelFirst, parallelSecond] = await Promise.all([
+      call(
+        write,
+        { path: join(workspace, "parallel-a.txt"), content: "a", sandbox_permissions: "danger-full-access", justification: "integration check" },
+        parallelContext,
+      ),
+      call(
+        write,
+        { path: join(workspace, "parallel-b.txt"), content: "b", sandbox_permissions: "danger-full-access", justification: "integration check" },
+        parallelContext,
+      ),
+    ]);
+    record(
+      "escalation: parallel requests open one dialog at a time and both settle",
+      peakDialogs === 1 && parallelFirst.ok && parallelSecond.ok
+        && readFileSync(join(workspace, "parallel-a.txt"), "utf-8") === "a"
+        && readFileSync(join(workspace, "parallel-b.txt"), "utf-8") === "b",
+      `peak dialogs=${peakDialogs} first=${parallelFirst.ok} second=${parallelSecond.ok}`,
+    );
   } finally {
     session.dispose();
   }
@@ -278,6 +317,7 @@ try {
     roSession.dispose();
     rmSync(readOnly, { recursive: true, force: true });
   }
+
 } catch (error) {
   record("unexpected failure", false, String(error));
 } finally {

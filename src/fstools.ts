@@ -143,7 +143,7 @@ export function registerFsTools(pi: ExtensionAPI, state: SandboxState): void {
     const policy = await resolveCallPolicy(
       state,
       params as { sandbox_permissions?: string; justification?: string },
-      { ui: ctx.ui, hasUI: ctx.hasUI },
+      { ui: ctx.ui, hasUI: ctx.hasUI, signal },
       toolName,
       SUBJECT,
     );

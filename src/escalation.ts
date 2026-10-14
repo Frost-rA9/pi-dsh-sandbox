@@ -10,11 +10,14 @@
  * so the channel is the extension UI (`ctx.ui.select`). The sequencing is
  * unchanged: validate the pairing, prove the target is strictly wider, ask the
  * human BEFORE anything executes, and apply the granted mode to this one call.
+ * Because pi's UI holds one dialog slot, concurrent asks wait in
+ * {@link dialogQueue} instead of replacing each other.
  *
  * @module pi-dsh-sandbox/escalation
  */
 
 import type { ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { dialogQueue } from "./dialog-queue.ts";
 import type { SandboxMode } from "./modes.ts";
 
 /**
@@ -117,6 +120,12 @@ export interface EscalationApproval {
   hasUI: boolean;
   /** The tool name, for the audit prompt. */
   toolName: string;
+  /**
+   * The tool execution's abort signal (dsh `EscalationApproval.signal`).
+   * Aborting withdraws the question: a queued request never opens, an open
+   * dialog closes, and a late answer is discarded.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -145,9 +154,13 @@ export async function approveEscalation(
       `sandbox escalation to "${mode}" requires approval, but no approval channel is available`,
     );
   }
-  const choice = await approval.ui.select(
-    `Allow this ${subject} with ${mode} permissions: ${justification}`,
-    ["Allow once", "Cancel"],
+  const choice = await dialogQueue.run(
+    () => approval.ui.select(
+      `Allow this ${subject} with ${mode} permissions: ${justification}`,
+      ["Allow once", "Cancel"],
+      approval.signal === undefined ? undefined : { signal: approval.signal },
+    ),
+    approval.signal,
   );
   if (choice === undefined) throw new Error(`approval for escalating to "${mode}" was cancelled`);
   if (choice !== "Allow once") {
