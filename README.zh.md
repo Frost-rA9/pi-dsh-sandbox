@@ -47,6 +47,14 @@ pi --sandbox-mode read-only                          # 优先于恢复出来的�
 
 本扩展没有运行时依赖，不需要 `npm install`。
 
+本扩展注册自己的 `codemode`（pi 的定义加上整段提权），pi 因此不加载内置的 `codemode` 扩展，并在启动时报告这件事。关掉内置项即可消除该提示：扩展的 codemode 定义取自 pi 本身，关掉不会少任何功能。在 `~/.pi/agent/settings.json` 中写：
+
+```json
+{
+  "extensions": ["-builtin:codemode"]
+}
+```
+
 ## 使用
 
 `/sandbox` 打开选择器并标出当前模式。没有对话通道时，例如 print 模式，改为打印状态。

@@ -60,6 +60,18 @@ pi --sandbox-mode read-only                          # outranks a restored mode
 
 The extension ships no runtime dependencies, so it needs no `npm install`.
 
+The extension registers its own `codemode` (pi's definition plus the
+program-level escalation), so pi drops the built-in `codemode` extension and
+reports that at startup. Disabling the built-in removes the warning; the
+extension asks pi for the codemode definition itself, so nothing is lost. In
+`~/.pi/agent/settings.json`:
+
+```json
+{
+  "extensions": ["-builtin:codemode"]
+}
+```
+
 ## Use
 
 `/sandbox` opens a picker and marks the current mode. Without a dialog channel,
