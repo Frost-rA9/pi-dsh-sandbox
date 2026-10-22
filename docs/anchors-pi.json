@@ -2,7 +2,7 @@
   "upstream": "pi",
   "design": "docs/design.md",
   "package": "@earendil-works/pi-coding-agent",
-  "recordedVersion": "1.3.0",
+  "recordedVersion": "1.4.0",
   "declarationsRelativeTo": "the installed package root",
   "piPathsRelativeTo": "this repository root",
   "evidenceLabels": ["documented-api", "documented-behavior", "observed-behavior", "package-export"],

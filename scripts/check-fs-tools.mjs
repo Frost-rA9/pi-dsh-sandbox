@@ -430,6 +430,70 @@ try {
     rmSync(programWorkspace, { recursive: true, force: true });
   }
 
+  // ---------------------------------------------------------------- phase D —
+  // A session mode change cancels the running program; the next program runs
+  // under the new mode. Admission waiting for a cancelled program's cleanup is
+  // a unit-level contract in `tests/run-grant.test.ts`, because pi's codemode
+  // settles a cancelled program before its nested tool handler returns.
+  const cancelWorkspace = mkdtempSync(join(tmpdir(), "pi-dsh-tools-cancel-"));
+  const { session: cancelSession } = await buildSession(cancelWorkspace, undefined);
+  try {
+    const write = cancelSession.getToolDefinition("write");
+    const codemode = cancelSession.getToolDefinition("codemode");
+    if (write === undefined || codemode === undefined) {
+      recordSkip("codemode: a mode change cancels the running program", "codemode or write is not registered");
+      recordSkip("codemode: the next program runs under the new mode", "codemode or write is not registered");
+    } else {
+      const textOf = (result) => (result?.content ?? []).filter((block) => block.type === "text").map((block) => block.text ?? "").join("\n");
+      let runId = "";
+      let releaseNested;
+      const nestedGate = new Promise((resolve) => { releaseNested = resolve; });
+      let markStarted;
+      const startedGate = new Promise((resolve) => { markStarted = resolve; });
+      const context = {
+        cwd: cancelWorkspace,
+        hasUI: false,
+        mode: "print",
+        ui: stubUi,
+        sessionManager: SessionManager.inMemory(),
+        modelRegistry: {},
+        tools: [{ name: "write", description: write.description, parameters: write.parameters }],
+        executeTool: async (name, args) => {
+          const toolCall = { type: "toolCall", id: `${runId}/1`, name, arguments: args };
+          markStarted();
+          await nestedGate;
+          return { toolCall, result: { content: [{ type: "text", text: "ok" }], details: {} }, isError: false };
+        },
+      };
+      const run = (code, toolCallId) => {
+        runId = toolCallId;
+        return call(codemode, { code }, context, toolCallId);
+      };
+
+      const first = run("await tools.write({ path: 'a', content: 'a' }); return 'first';", "cancel-run-1");
+      await startedGate;
+      await cancelSession.prompt("/sandbox read-only");
+      releaseNested();
+      const firstResult = await first;
+      record(
+        "codemode: a mode change cancels the running program",
+        firstResult.ok && /Script aborted: sandbox mode changed/.test(textOf(firstResult.result)),
+        firstResult.ok ? textOf(firstResult.result).split("\n").slice(-2).join(" ") : firstResult.message.split("\n")[0],
+      );
+
+      const second = run("return 'second';", "cancel-run-2");
+      const secondResult = await second;
+      record(
+        "codemode: the next program runs under the new mode",
+        secondResult.ok && /Script completed/.test(textOf(secondResult.result)),
+        secondResult.ok ? "" : secondResult.message.split("\n")[0],
+      );
+    }
+  } finally {
+    cancelSession.dispose();
+    rmSync(cancelWorkspace, { recursive: true, force: true });
+  }
+
 } catch (error) {
   record("unexpected failure", false, String(error));
 } finally {

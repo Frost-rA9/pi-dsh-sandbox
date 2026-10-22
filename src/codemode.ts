@@ -3,10 +3,11 @@
  *
  * Ported from dsh `packages/core/tools/src/ptc.ts` (`run_code`): escalation
  * fields on the tool call, one approval before the program runs, the approved
- * mode held for that one execution, and `escalationGuidance` teaching the
- * one-shot grant. dsh's policy confines the program's own process; pi's
- * codemode has no process, so the grant rides the run's nested calls instead
- * (`src/run-grant.ts`), the divergence chapter 4.3 records.
+ * mode held for that one execution and dropped when the session mode changes,
+ * and `escalationGuidance` teaching the one-shot grant. dsh's policy confines
+ * the program's own process; pi's codemode has no process, so the grant rides
+ * the run's nested calls instead (`src/run-grant.ts`), the divergence chapter
+ * 4.3 records.
  *
  * pi does not export the codemode tool definition, only the extension factory,
  * so this module runs that factory against a registering proxy to capture the
@@ -26,7 +27,7 @@ import type {
 import { createCodemodeExtension } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { resolveCallPolicy } from "./calls.ts";
-import { beginRun, endRun } from "./run-grant.ts";
+import { awaitCancelledRuns, beginRun, endRun, setRunMode } from "./run-grant.ts";
 import { programEscalationSchemaFields } from "./schema.ts";
 import type { SandboxState } from "./state.ts";
 
@@ -96,21 +97,30 @@ export function registerCodemode(pi: ExtensionAPI, state: SandboxState): void {
       onUpdate: unknown,
       ctx: ExtensionToolContext,
     ) {
-      const policy = await resolveCallPolicy(
-        state,
-        params,
-        { ui: ctx.ui, hasUI: ctx.hasUI, signal },
-        base.name,
-        SUBJECT,
-        toolCallId,
-      );
-      beginRun(toolCallId, policy.mode);
+      // A cancelled predecessor must finish its nested cleanup before this
+      // call resolves the mode it runs under, as dsh's PTC admission does.
+      await awaitCancelledRuns();
+      // Admit the run before the approval dialog opens, under the session mode
+      // that is in force now: a mode change during the dialog then cancels the
+      // call, and the grant replaces that mode after the user decides.
+      const standing = state.effectiveMode();
+      const runSignal = beginRun(toolCallId, standing, standing);
+      const callSignal = signal === undefined ? runSignal : AbortSignal.any([signal, runSignal]);
       let result: AgentToolResult<unknown>;
       try {
+        const policy = await resolveCallPolicy(
+          state,
+          params,
+          { ui: ctx.ui, hasUI: ctx.hasUI, signal: callSignal },
+          base.name,
+          SUBJECT,
+          toolCallId,
+        );
+        setRunMode(toolCallId, policy.mode);
         result = await (base.execute as unknown as (...args: unknown[]) => Promise<AgentToolResult<unknown>>)(
           toolCallId,
           params,
-          signal,
+          callSignal,
           onUpdate,
           ctx,
         );

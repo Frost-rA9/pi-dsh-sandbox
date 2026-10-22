@@ -1,7 +1,7 @@
 {
   "upstream": "dsh",
   "design": "docs/design.md",
-  "recordedRef": "d743267388",
+  "recordedRef": "687f282e86",
   "dshPathsRelativeTo": "deepseek-harness repository root",
   "piPathsRelativeTo": "this repository root",
   "symbolMeans": "a substring that must appear in the file at recordedRef; null means the whole file",
@@ -115,7 +115,7 @@
       ],
       "result": "extended",
       "parity": { "status": "planned", "test": "tests/escalation-parity.test.ts" },
-      "note": "fields and guidance verbatim; dsh confines the program's own process, pi's codemode has no process, so the one-shot grant rides the run's nested calls instead (ch. 4.3)"
+      "note": "fields and guidance verbatim; dsh confines the program's own process, pi's codemode has no process, so the one-shot grant rides the run's nested calls instead; a session mode change cancels the run and later runs wait for its cleanup (ch. 4.3)"
     },
     {
       "id": "bash-family",

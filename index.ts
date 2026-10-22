@@ -24,6 +24,7 @@ import { registerBashTool } from "./src/bash.ts";
 import { registerCodemode } from "./src/codemode.ts";
 import { registerFsTools } from "./src/fstools.ts";
 import { SANDBOX_MODES, isConfined, isSandboxMode, type SandboxMode } from "./src/modes.ts";
+import { cancelRunsForMode } from "./src/run-grant.ts";
 import { MODE_ENTRY, STATUS_KEY, SandboxState } from "./src/state.ts";
 import { SANDBOX_NOTICE_TYPE, sandboxSwitchNotice } from "./src/notice.ts";
 
@@ -97,6 +98,10 @@ async function applyMode(
   }
   const before = state.effectiveMode();
   const selection = state.setOverride(pi, mode);
+  // dsh cancels the `run_code` calls admitted under the previous mode: their
+  // grant outlived the policy it was approved under. The next program waits
+  // for the cancelled one's nested cleanup in `registerCodemode`.
+  if (state.effectiveMode() !== before) cancelRunsForMode(state.effectiveMode());
   updateStatus(state, ctx);
   // One visible model-facing notice per real switch. Sending it only when the
   // effective tier changed keeps a repeat selection and a downgraded request
