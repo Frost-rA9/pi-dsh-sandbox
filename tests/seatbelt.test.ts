@@ -12,7 +12,7 @@
  */
 
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -92,6 +92,20 @@ test("read-only profile denies every write and re-allows only /dev/null", () => 
     profile,
     '(version 1) (allow default) (deny file-write*) (allow file-write* (literal "/dev/null"))',
   );
+});
+
+test("workspace-write re-allows an explicit extra root as a subpath", () => {
+  const extra = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-seatbelt-extra-"));
+  try {
+    const [, profile] = seatbeltProfileArgs({
+      mode: "workspace-write",
+      workspaceRoot: "/work",
+      additionalWritableRoots: [extra],
+    });
+    assert.ok(profile.includes(`(subpath ${sbplString(extra)})`), profile);
+  } finally {
+    rmSync(extra, { recursive: true, force: true });
+  }
 });
 
 test("workspace-write profile re-allows the shared writable roots as subpaths", () => {

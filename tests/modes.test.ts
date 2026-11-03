@@ -40,9 +40,38 @@ test("config rejects bad values", () => {
 
 test("config accepts a full valid object", () => {
   assert.deepEqual(
-    parseConfig({ mode: "read-only", bwrapPath: "/usr/bin/bwrap", seatbeltPath: "/usr/bin/sandbox-exec", probeTimeoutMs: 250 }),
-    { mode: "read-only", bwrapPath: "/usr/bin/bwrap", seatbeltPath: "/usr/bin/sandbox-exec", probeTimeoutMs: 250 },
+    parseConfig({
+      mode: "read-only",
+      bwrapPath: "/usr/bin/bwrap",
+      seatbeltPath: "/usr/bin/sandbox-exec",
+      additionalWritableRoots: ["/srv/data"],
+      probeTimeoutMs: 250,
+    }),
+    {
+      mode: "read-only",
+      bwrapPath: "/usr/bin/bwrap",
+      seatbeltPath: "/usr/bin/sandbox-exec",
+      additionalWritableRoots: ["/srv/data"],
+      probeTimeoutMs: 250,
+    },
   );
+});
+
+test("extra writable roots default to none and are detached, deduplicated, and frozen", () => {
+  assert.deepEqual(parseConfig({}).additionalWritableRoots, []);
+  const roots = ["/srv/a", "/srv/a", "/srv/b"];
+  const config = parseConfig({ additionalWritableRoots: roots });
+  assert.deepEqual(config.additionalWritableRoots, ["/srv/a", "/srv/b"]);
+  assert.equal(Object.isFrozen(config.additionalWritableRoots), true);
+  roots.push("/srv/c");
+  assert.deepEqual(config.additionalWritableRoots, ["/srv/a", "/srv/b"]);
+});
+
+test("extra writable roots must be absolute paths without NUL bytes", () => {
+  assert.throws(() => parseConfig({ additionalWritableRoots: ["srv/data"] }), /entries must be absolute paths/);
+  assert.throws(() => parseConfig({ additionalWritableRoots: ["/srv/\0x"] }), /must not contain NUL bytes/);
+  assert.throws(() => parseConfig({ additionalWritableRoots: "/srv/data" }), /must be an array of absolute paths/);
+  assert.throws(() => parseConfig({ additionalWritableRoots: [42] }), /entries must be absolute paths/);
 });
 
 test("each platform's runner path has its own default", () => {

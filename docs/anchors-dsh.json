@@ -38,7 +38,7 @@
       "pi": [{ "path": "src/roots.ts", "symbol": "writableRoots" }],
       "result": "ported-verbatim",
       "parity": { "status": "present", "test": "tests/roots-parity.test.ts" },
-      "note": "one derivation shared by the fence and the bubblewrap profile"
+      "note": "one derivation shared by the fence and the bubblewrap profile; since dsh 0.2.2 it splits into workspaceWritableRoots (workspace plus explicit extra directories) and writableRoots (that set plus platform temp areas), with each explicit root checked to be an existing physical directory — ported verbatim, except that the invalid-root error extends Error with code SANDBOX_INVALID_ROOT instead of HarnessError"
     },
     {
       "id": "filesystem-fence",
@@ -48,7 +48,7 @@
       "pi": [{ "path": "src/fence.ts", "symbol": "checkedTarget" }],
       "result": "ported",
       "parity": null,
-      "note": "includes the re-canonicalize-before-write window"
+      "note": "includes the re-canonicalize-before-write window; dsh 0.2.2 also fences patchText, deleteFile, and moveFile, which pi has no tools for — pi deletes and moves through bash, confined by the command boundary"
     },
     {
       "id": "path-containment",
@@ -68,7 +68,7 @@
       "pi": [{ "path": "src/calls.ts", "symbol": "resolveCallPolicy" }],
       "result": "ported",
       "parity": null,
-      "note": "grant outranks session override, which outranks the deployment default; reviewed at d743267388, where dsh rewrote the workspace-root sentence (the original Session directory, or the deployment fallback) and resolves paths through its working-directory service — pi has no such service, so the port keeps the session-start cwd plus the configured fallback (ch. 4.2)"
+      "note": "grant outranks session override, which outranks the deployment default; the 0.2.2 relaxed pairing is ported here; reviewed at d743267388, where dsh rewrote the workspace-root sentence (the original Session directory, or the deployment fallback) and resolves paths through its working-directory service — pi has no such service, so the port keeps the session-start cwd plus the configured fallback (ch. 4.2)"
     },
     {
       "id": "write-edit-tools",
@@ -100,7 +100,7 @@
       ],
       "result": "ported-verbatim",
       "parity": { "status": "present", "test": "tests/escalation-parity.test.ts" },
-      "note": "strings verbatim; the approval channel substitutes ctx.ui.select for ctx.approval"
+      "note": "strings verbatim; the approval channel substitutes ctx.ui.select for ctx.approval; dsh builds the approval displayReason from its locale tables and pi keeps the English sentence; the relaxed pairing (repeating the standing mode needs no justification) applies to the program tier too, where dsh still validates strictly"
     },
     {
       "id": "program-escalation",
@@ -117,7 +117,7 @@
       ],
       "result": "extended",
       "parity": { "status": "planned", "test": "tests/escalation-parity.test.ts" },
-      "note": "fields and guidance verbatim; dsh confines the program's own process, pi's codemode has no process, so the one-shot grant rides the run's nested calls instead; a session mode change cancels the run and later runs wait for its cleanup (ch. 4.3)"
+      "note": "fields and guidance verbatim; the dsh module moved to packages/core/tool-executor-ptc in 0.2.2 with the same fields and guidance text; dsh confines the program's own process, pi's codemode has no process, so the one-shot grant rides the run's nested calls instead; a session mode change cancels the run and later runs wait for its cleanup (ch. 4.3)"
     },
     {
       "id": "bash-family",
@@ -181,7 +181,7 @@
       "pi": [{ "path": "src/notice.ts", "symbol": "sandboxPolicyContext" }],
       "result": "adapted",
       "parity": null,
-      "note": "the per-request runtime context becomes a switch notice, with the product name replaced; no call parity is possible while renderPolicyContext stays unexported, and a dsh-side change appears as a review item in the anchor report"
+      "note": "the per-request runtime context becomes a switch notice, with the product name replaced, plus the 0.2.2 extra-directory sentence; no call parity is possible while renderPolicyContext stays unexported, and a dsh-side change appears as a review item in the anchor report"
     },
     {
       "id": "windows-acl-rung",
@@ -191,7 +191,7 @@
       "pi": [],
       "result": "not-ported",
       "parity": null,
-      "note": "win32 falls back to danger-full-access"
+      "note": "win32 falls back to danger-full-access, so no policy reaches a Windows rung and the 0.2.2 SandboxUnsupportedPolicyError for extra roots has no pi counterpart"
     },
     {
       "id": "landlock-rung",

@@ -27,6 +27,21 @@ function fakePi(): { api: Parameters<SandboxState["setOverride"]>[0]; entries: {
   return { api, entries };
 }
 
+test("the resolved policy carries the configured extra roots, and omits them when none", () => {
+  const state = new SandboxState("linux");
+  assert.equal("additionalWritableRoots" in state.resolve(), false);
+  state.loadConfig({ additionalWritableRoots: ["/srv/a"] });
+  assert.deepEqual(state.resolve().additionalWritableRoots, ["/srv/a"]);
+  assert.deepEqual(state.resolve("read-only").additionalWritableRoots, ["/srv/a"]);
+});
+
+test("a broken additionalWritableRoots entry fails the config and narrows to read-only", () => {
+  const state = new SandboxState("linux");
+  state.loadConfig({ additionalWritableRoots: ["relative/path"] });
+  assert.match(state.configError ?? "", /additionalWritableRoots/);
+  assert.equal(state.effectiveMode(), "read-only");
+});
+
 test("linux keeps the workspace-write default and mounts confinement", () => {
   const state = new SandboxState("linux");
   assert.equal(state.fallbackMode, undefined);

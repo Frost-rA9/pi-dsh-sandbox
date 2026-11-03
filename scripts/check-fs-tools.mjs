@@ -13,7 +13,7 @@
  * @module pi-dsh-sandbox/scripts/check-fs-tools
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -239,6 +239,48 @@ try {
       malformed.ok ? "unexpectedly allowed" : malformed.message.split("\n")[0],
     );
 
+    // dsh 0.2.2 relaxes the pairing: repeating the standing mode is not an
+    // escalation, so it needs no justification and opens no dialog; a blank
+    // justification without a mode is treated as absent; a real justification
+    // without a mode is still rejected.
+    let repeatDialogs = 0;
+    const repeat = await call(
+      write,
+      { path: join(workspace, "repeat-mode.txt"), content: "repeated", sandbox_permissions: "workspace-write" },
+      {
+        cwd: workspace,
+        hasUI: true,
+        ui: { ...stubUi, select: async () => { repeatDialogs += 1; return "Allow once"; } },
+      },
+    );
+    record(
+      "escalation: repeating the standing mode needs neither justification nor a dialog",
+      repeat.ok && repeatDialogs === 0 && readFileSync(join(workspace, "repeat-mode.txt"), "utf-8") === "repeated",
+      repeat.ok ? `dialogs=${repeatDialogs}` : repeat.message.split("\n")[0],
+    );
+
+    const blankReason = await call(
+      write,
+      { path: join(workspace, "blank-reason.txt"), content: "x", justification: "   " },
+      fakeContext(workspace, { hasUI: false }),
+    );
+    record(
+      "escalation: a blank justification without a mode is treated as absent",
+      blankReason.ok && existsSync(join(workspace, "blank-reason.txt")),
+      blankReason.ok ? "" : blankReason.message.split("\n")[0],
+    );
+
+    const strayReason = await call(
+      write,
+      { path: join(workspace, "stray-reason.txt"), content: "x", justification: "because" },
+      fakeContext(workspace, { hasUI: false }),
+    );
+    record(
+      "escalation: a justification without a mode is still invalid",
+      !strayReason.ok && /justification is only valid together with sandbox_permissions/.test(strayReason.message),
+      strayReason.ok ? "unexpectedly allowed" : strayReason.message.split("\n")[0],
+    );
+
     // pi's interactive UI holds one extension-dialog slot, so the extension
     // queues concurrent approvals instead of letting the second dialog replace
     // the first. Both calls must settle, one dialog at a time.
@@ -365,6 +407,75 @@ try {
       }
     } finally {
       validationSession.dispose();
+    }
+  }
+
+  // ---------------------------------------------------------------- phase A3 —
+  // Explicit extra writable roots (dsh 0.2.2). The config is the only way a
+  // deployment names them, so this phase also proves the config file reaches
+  // the policy the fence reads.
+  if (outsideRoot === undefined) {
+    recordSkip("extra roots: a configured extra root is writable under workspace-write", "no usable outside root");
+    recordSkip("extra roots: a directory outside the workspace and the extra roots is denied", "no usable outside root");
+    recordSkip("extra roots: a symlinked extra root is rejected", "no usable outside root");
+  } else {
+    const extraWorkspace = mkdtempSync(join(tmpdir(), "pi-dsh-tools-extra-ws-"));
+    const extraRoot = mkdtempSync(join(outsideRoot, "pi-dsh-tools-extra-"));
+    const siblingRoot = mkdtempSync(join(outsideRoot, "pi-dsh-tools-sibling-"));
+    mkdirSync(join(extraWorkspace, ".pi"), { recursive: true });
+    writeFileSync(
+      join(extraWorkspace, ".pi", "dsh-sandbox.json"),
+      JSON.stringify({ additionalWritableRoots: [extraRoot] }),
+    );
+    const { session: extraSession } = await buildSession(extraWorkspace, undefined);
+    try {
+      const write = extraSession.getToolDefinition("write");
+      const context = fakeContext(extraWorkspace, { hasUI: false });
+      const granted = await call(write, { path: join(extraRoot, "granted.txt"), content: "granted" }, context);
+      record(
+        "extra roots: a configured extra root is writable under workspace-write",
+        granted.ok && readFileSync(join(extraRoot, "granted.txt"), "utf-8") === "granted",
+        granted.ok ? "" : granted.message.split("\n")[0],
+      );
+
+      const refused = await call(write, { path: join(siblingRoot, "refused.txt"), content: "x" }, context);
+      record(
+        "extra roots: a directory outside the workspace and the extra roots is denied",
+        !refused.ok && /\[sandbox: file access denied under workspace-write mode\]/.test(refused.message),
+        refused.ok ? "unexpectedly allowed" : refused.message.split("\n")[0],
+      );
+
+      const aliasWorkspace = mkdtempSync(join(tmpdir(), "pi-dsh-tools-symlink-ws-"));
+      const alias = join(aliasWorkspace, "alias");
+      symlinkSync(extraRoot, alias);
+      mkdirSync(join(aliasWorkspace, ".pi"), { recursive: true });
+      writeFileSync(
+        join(aliasWorkspace, ".pi", "dsh-sandbox.json"),
+        JSON.stringify({ additionalWritableRoots: [alias] }),
+      );
+      const { session: aliasSession } = await buildSession(aliasWorkspace, undefined);
+      try {
+        const aliasWrite = aliasSession.getToolDefinition("write");
+        const escaped = await call(
+          aliasWrite,
+          { path: join(extraRoot, "through-alias.txt"), content: "x" },
+          fakeContext(aliasWorkspace, { hasUI: false }),
+        );
+        record(
+          "extra roots: a symlinked extra root is rejected",
+          !escaped.ok && /symlinked grants are not supported/.test(escaped.message) && !existsSync(join(extraRoot, "through-alias.txt")),
+          escaped.ok ? "unexpectedly allowed" : escaped.message.split("\n")[0],
+        );
+      } finally {
+        aliasSession.dispose();
+        rmSync(alias, { force: true });
+        rmSync(aliasWorkspace, { recursive: true, force: true });
+      }
+    } finally {
+      extraSession.dispose();
+      rmSync(extraRoot, { recursive: true, force: true });
+      rmSync(siblingRoot, { recursive: true, force: true });
+      rmSync(extraWorkspace, { recursive: true, force: true });
     }
   }
 

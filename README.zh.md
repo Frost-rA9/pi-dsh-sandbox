@@ -71,6 +71,8 @@ footer 把模式显示为 `[sandbox::<mode>]`。`read-only` 是绿色，`workspa
 
 同一条工具结果会告诉模型，用 `sandbox_permissions` 加一句 `justification` 重试这次操作。
 
+申请当前已生效的模式不算升级，既不需要 `justification`，也不弹审批框。没有 `sandbox_permissions` 时的空白 `justification` 视为缺省；有内容时会报错。
+
 pi 会请你审批，授权只覆盖那一次调用。拒绝、取消弹窗或没有对话通道，都会保留拒绝状态。并发的审批请求会在队列里等待，同一时间只打开一个。
 
 `codemode` 脚本也可以为整次运行申请更宽的模式。`sandbox_permissions` 与 `justification` 写在 `codemode` 调用上，覆盖脚本发出的每次调用。授权随本次运行结束而失效，会话模式变化时也失效。
@@ -88,7 +90,10 @@ pi 会请你审批，授权只覆盖那一次调用。拒绝、取消弹窗或�
 | `mode` | `workspace-write` | 会话启动时的模式 |
 | `bwrapPath` | `bwrap` | Linux 后端调用的 runner |
 | `seatbeltPath` | `sandbox-exec` | macOS 后端调用的 runner |
+| `additionalWritableRoots` | `[]` | `workspace-write` 额外可写的物理目录 |
 | `probeTimeoutMs` | `5000` | 一次性后端探测的毫秒上限 |
+
+`additionalWritableRoots` 的每一项必须是绝对路径与物理路径。每次受限调用时，扩展会拒绝不存在的路径、非目录，以及经由符号链接拼写的路径。`read-only` 与 `danger-full-access` 下的额外目录不授予任何权限。扩展不做自动发现，需要逐个列出。
 
 ## 已知限制
 

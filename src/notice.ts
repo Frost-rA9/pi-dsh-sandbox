@@ -28,13 +28,22 @@ export const SANDBOX_NOTICE_TYPE = "dsh-sandbox-notice";
  *
  * @param mode The mode now in force.
  * @param workspaceRoot The absolute `workspace-write` boundary.
+ * @param additionalWritableRoots The explicit extra directories, when configured.
  */
-export function sandboxPolicyContext(mode: SandboxMode, workspaceRoot: string): string {
+export function sandboxPolicyContext(
+  mode: SandboxMode,
+  workspaceRoot: string,
+  additionalWritableRoots: readonly string[] = [],
+): string {
   switch (mode) {
     case "read-only":
       return "Current file policy: read-only. Any available operation enforced by the sandbox cannot modify files in the standing mode. Do not refuse a required modification from this policy alone: try an available tool normally and follow any denial and escalation guidance it returns.";
-    case "workspace-write":
-      return `Current file policy: workspace-write. Any available operation enforced by the sandbox may modify files under the session workspace: ${JSON.stringify(workspaceRoot)}. Some platform temporary areas may also be writable.`;
+    case "workspace-write": {
+      const extra = additionalWritableRoots.length === 0
+        ? ""
+        : ` Additional writable directories: ${JSON.stringify(additionalWritableRoots)}.`;
+      return `Current file policy: workspace-write. Any available operation enforced by the sandbox may modify files under the session workspace: ${JSON.stringify(workspaceRoot)}.${extra} Some platform temporary areas may also be writable.`;
+    }
     case "danger-full-access":
       return "Current file policy: danger-full-access. The sandbox does not restrict file modifications by available operations.";
   }
@@ -45,7 +54,12 @@ export function sandboxPolicyContext(mode: SandboxMode, workspaceRoot: string): 
  *
  * @param mode The effective mode after the switch.
  * @param workspaceRoot The absolute `workspace-write` boundary.
+ * @param additionalWritableRoots The explicit extra directories, when configured.
  */
-export function sandboxSwitchNotice(mode: SandboxMode, workspaceRoot: string): string {
-  return `The user switched this session's sandbox mode to ${mode}.\n\n${sandboxPolicyContext(mode, workspaceRoot)}`;
+export function sandboxSwitchNotice(
+  mode: SandboxMode,
+  workspaceRoot: string,
+  additionalWritableRoots: readonly string[] = [],
+): string {
+  return `The user switched this session's sandbox mode to ${mode}.\n\n${sandboxPolicyContext(mode, workspaceRoot, additionalWritableRoots)}`;
 }

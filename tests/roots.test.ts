@@ -11,7 +11,12 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { isPathUnder } from "../src/containment.ts";
 import { checkedTarget, freshestTarget, SandboxDeniedError } from "../src/fence.ts";
-import { canonicalPath, writableRoots } from "../src/roots.ts";
+import {
+  canonicalPath,
+  SandboxInvalidRootError,
+  workspaceWritableRoots,
+  writableRoots,
+} from "../src/roots.ts";
 
 function withWorkspace<T>(fn: (workspace: string) => T): T {
   const workspace = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-sandbox-test-"));
@@ -37,6 +42,107 @@ test("workspace-write includes the workspace, /tmp, and os.tmpdir() canonically"
 
 test("danger-full-access has no allow-list (it never fences)", () => {
   assert.deepEqual(writableRoots({ mode: "danger-full-access", workspaceRoot: "/tmp/x" }), []);
+});
+
+test("workspaceWritableRoots is the workspace plus explicit roots, without temp areas", () => {
+  withWorkspace((workspace) => {
+    const extra = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-roots-extra-"));
+    try {
+      const roots = workspaceWritableRoots({
+        mode: "workspace-write",
+        workspaceRoot: workspace,
+        additionalWritableRoots: [extra],
+      });
+      assert.deepEqual(roots, [canonicalPath(workspace), canonicalPath(extra)]);
+      assert.equal(roots.includes(canonicalPath("/tmp")), false);
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
+});
+
+test("writableRoots adds an explicit extra root and still deduplicates", () => {
+  withWorkspace((workspace) => {
+    const extra = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-roots-extra-"));
+    try {
+      const roots = writableRoots({
+        mode: "workspace-write",
+        workspaceRoot: workspace,
+        additionalWritableRoots: [extra, workspace],
+      });
+      assert.ok(roots.includes(canonicalPath(extra)));
+      assert.ok(roots.includes(canonicalPath(workspace)));
+      assert.equal(roots.length, new Set(roots).size, "roots are deduplicated");
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
+});
+
+test("read-only and danger-full-access grant no explicit root", () => {
+  withWorkspace((workspace) => {
+    const extra = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-roots-extra-"));
+    try {
+      for (const mode of ["read-only", "danger-full-access"] as const) {
+        assert.deepEqual(workspaceWritableRoots({ mode, workspaceRoot: workspace, additionalWritableRoots: [extra] }), []);
+        assert.deepEqual(writableRoots({ mode, workspaceRoot: workspace, additionalWritableRoots: [extra] }), []);
+      }
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
+});
+
+test("an explicit root must be an existing directory", () => {
+  withWorkspace((workspace) => {
+    const missing = join(workspace, "missing");
+    assert.throws(
+      () => workspaceWritableRoots({ mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [missing] }),
+      (error: unknown) => {
+        assert.ok(error instanceof SandboxInvalidRootError);
+        assert.equal(error.code, "SANDBOX_INVALID_ROOT");
+        assert.match(error.message, /cannot read the directory/);
+        return true;
+      },
+    );
+    const file = join(workspace, "file.txt");
+    writeFileSync(file, "x");
+    assert.throws(
+      () => workspaceWritableRoots({ mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [file] }),
+      /expected an existing directory/,
+    );
+  });
+});
+
+test("an explicit root spelled through a symlink is rejected with the physical path", () => {
+  withWorkspace((workspace) => {
+    const physical = join(workspace, "physical");
+    mkdirSync(physical);
+    const alias = join(workspace, "alias");
+    symlinkSync(physical, alias);
+    assert.throws(
+      () => workspaceWritableRoots({ mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [alias] }),
+      (error: unknown) => {
+        assert.ok(error instanceof SandboxInvalidRootError);
+        assert.match(error.message, /symlinked grants are not supported/);
+        assert.ok(error.message.includes(JSON.stringify(physical)), error.message);
+        return true;
+      },
+    );
+  });
+});
+
+test("an explicit root lets a mutation outside the workspace pass the fence", async () => {
+  await withWorkspace(async (workspace) => {
+    const extra = mkdtempSync(join(realpathSync.native(tmpdir()), "pi-dsh-roots-extra-"));
+    try {
+      const policy = { mode: "workspace-write" as const, workspaceRoot: workspace, additionalWritableRoots: [extra] };
+      assert.equal(await checkedTarget(join(extra, "file.txt"), policy), join(extra, "file.txt"));
+      assert.equal(await checkedTarget(join(workspace, "file.txt"), policy), join(workspace, "file.txt"));
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
 });
 
 test("containment is a path boundary, not a string prefix", async () => {

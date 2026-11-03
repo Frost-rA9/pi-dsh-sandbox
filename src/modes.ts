@@ -9,13 +9,16 @@
  * @module pi-dsh-sandbox/modes
  */
 
+import { isAbsolute } from "node:path";
+
 /** Every sandbox mode, for option advertisement and untrusted-value validation. */
 export const SANDBOX_MODES = ["read-only", "workspace-write", "danger-full-access"] as const;
 
 /**
  * File-effect policy for confined executions. `read-only` permits only required
- * sinks such as `/dev/null`; `workspace-write` also permits the workspace and a
- * platform temp area; `danger-full-access` bypasses confinement.
+ * sinks such as `/dev/null`; `workspace-write` also permits the workspace,
+ * explicit extra roots, and platform temp areas; `danger-full-access` bypasses
+ * confinement.
  */
 export type SandboxMode = (typeof SANDBOX_MODES)[number];
 
@@ -32,6 +35,12 @@ export interface Policy {
   mode: SandboxMode;
   /** Absolute root directory `workspace-write` may write under. */
   workspaceRoot: string;
+  /**
+   * Extra physical absolute directories `workspace-write` may also write under.
+   * Absence means none. Every enforcing path rejects missing, non-directory,
+   * and symlinked entries on each call.
+   */
+  additionalWritableRoots?: readonly string[];
 }
 
 /** Extension configuration (project file overrides the global one). */
@@ -49,6 +58,14 @@ export interface Config {
   bwrapPath: string;
   /** `sandbox-exec` executable used for the macOS Seatbelt boundary and its probe. */
   seatbeltPath: string;
+  /**
+   * Extra physical absolute directories `workspace-write` may also write under.
+   * Named explicitly by the person configuring the extension; there is no
+   * automatic repository or gitfile discovery. Entries grant nothing under
+   * `read-only`, and each enforcing path validates that the directory exists,
+   * is a directory, and is spelled physically (no symlink alias).
+   */
+  additionalWritableRoots: readonly string[];
   /** Positive timeout for the one-time functional backend probe. */
   probeTimeoutMs: number;
 }
@@ -58,6 +75,7 @@ export const DEFAULT_CONFIG: Config = {
   mode: "workspace-write",
   bwrapPath: "bwrap",
   seatbeltPath: "sandbox-exec",
+  additionalWritableRoots: Object.freeze([]),
   probeTimeoutMs: 5_000,
 };
 
@@ -85,11 +103,12 @@ export function parseConfig(raw: unknown): Config {
   }
   const input = raw as Record<string, unknown>;
   const unknown = Object.keys(input).filter(
-    (key) => !["mode", "bwrapPath", "seatbeltPath", "probeTimeoutMs"].includes(key),
+    (key) => !["mode", "bwrapPath", "seatbeltPath", "additionalWritableRoots", "probeTimeoutMs"].includes(key),
   );
   if (unknown.length > 0) {
     throw new Error(
-      `pi-dsh-sandbox: unknown config key(s) ${unknown.join(", ")} — config is { mode, bwrapPath, seatbeltPath, probeTimeoutMs }`,
+      `pi-dsh-sandbox: unknown config key(s) ${unknown.join(", ")} — config is `
+        + "{ mode, bwrapPath, seatbeltPath, additionalWritableRoots, probeTimeoutMs }",
     );
   }
   const mode = input.mode ?? DEFAULT_CONFIG.mode;
@@ -106,9 +125,29 @@ export function parseConfig(raw: unknown): Config {
   if (typeof seatbeltPath !== "string" || seatbeltPath.trim() === "") {
     throw new Error("pi-dsh-sandbox: config \"seatbeltPath\" must be a non-empty string");
   }
+  const additionalWritableRoots = input.additionalWritableRoots ?? DEFAULT_CONFIG.additionalWritableRoots;
+  if (!Array.isArray(additionalWritableRoots)) {
+    throw new Error("pi-dsh-sandbox: config \"additionalWritableRoots\" must be an array of absolute paths");
+  }
+  for (const root of additionalWritableRoots) {
+    if (typeof root !== "string" || !isAbsolute(root)) {
+      throw new Error(
+        `pi-dsh-sandbox: config "additionalWritableRoots" entries must be absolute paths (got ${JSON.stringify(root)})`,
+      );
+    }
+    if (root.includes("\0")) {
+      throw new Error("pi-dsh-sandbox: config \"additionalWritableRoots\" entries must not contain NUL bytes");
+    }
+  }
   const probeTimeoutMs = input.probeTimeoutMs ?? DEFAULT_CONFIG.probeTimeoutMs;
   if (!Number.isFinite(probeTimeoutMs) || (probeTimeoutMs as number) <= 0) {
     throw new Error("pi-dsh-sandbox: config \"probeTimeoutMs\" must be a positive finite number");
   }
-  return { mode, bwrapPath, seatbeltPath, probeTimeoutMs: probeTimeoutMs as number };
+  return {
+    mode,
+    bwrapPath,
+    seatbeltPath,
+    additionalWritableRoots: Object.freeze([...new Set(additionalWritableRoots as string[])]),
+    probeTimeoutMs: probeTimeoutMs as number,
+  };
 }

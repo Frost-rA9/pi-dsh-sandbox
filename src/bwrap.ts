@@ -12,12 +12,14 @@
  */
 
 import type { Policy } from "./modes.ts";
+import { workspaceWritableRoots } from "./roots.ts";
 
 /**
  * Build the bwrap profile arguments for one file-effect policy — verbatim from
  * dsh. `read-only` keeps the whole filesystem read-only (only `--dev /dev`
  * grants the sink shells need); `workspace-write` adds an ephemeral `/tmp` and
- * a read-write bind of the workspace root OVER the read-only root.
+ * a read-write bind of every workspace-owned root (the workspace plus explicit
+ * extra directories) OVER the read-only root.
  *
  * @param policy The file-effect policy to express as bwrap mounts.
  * @returns Profile arguments before the trailing separator and command argv.
@@ -26,7 +28,7 @@ export function bwrapProfileArgs(policy: Policy): string[] {
   const args = ["--ro-bind", "/", "/", "--dev", "/dev", "--unshare-pid", "--proc", "/proc", "--die-with-parent"];
   if (policy.mode === "workspace-write") {
     args.push("--tmpfs", "/tmp");
-    args.push("--bind", policy.workspaceRoot, policy.workspaceRoot);
+    for (const root of workspaceWritableRoots(policy)) args.push("--bind", root, root);
   }
   return args;
 }

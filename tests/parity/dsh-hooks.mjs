@@ -1,10 +1,11 @@
 /**
  * ESM resolve hook for the parity tests.
  *
- * Two dsh workspace dependencies are unbuilt in a checkout (`lib/` is absent),
- * and one is a native addon. Mapping them to local stubs lets the anchored dsh
- * modules load unchanged, so the parity tests call dsh's real functions rather
- * than a copy. `@deepseek-ai/dsh-sandbox` resolves to its importable source.
+ * Three dsh workspace dependencies are unbuilt in a checkout (`lib/` is
+ * absent), and one is a native addon. Mapping them to local stubs lets the
+ * anchored dsh modules load unchanged, so the parity tests call dsh's real
+ * functions rather than a copy. `@deepseek-ai/dsh-sandbox` resolves to its
+ * importable source.
  *
  * @module pi-dsh-sandbox/tests/parity/dsh-hooks
  */
@@ -17,6 +18,7 @@ const shim = (name) => pathToFileURL(join(import.meta.dirname, "shims", name)).h
 
 const MAP = {
   "@deepseek-ai/dsh-util-values": shim("dsh-util-values.ts"),
+  "@deepseek-ai/dsh-llm": shim("dsh-llm.ts"),
   "@deepseek-ai/node-addon-system/landlock-run": shim("landlock-run.ts"),
   ...(dshRoot === undefined
     ? {}

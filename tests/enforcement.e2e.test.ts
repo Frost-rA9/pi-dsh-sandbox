@@ -9,13 +9,14 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { probeBackend, type Confiner } from "../src/backend.ts";
 import { DEFAULT_CONFIG, type Policy } from "../src/modes.ts";
 import { shellQuote } from "../src/bwrap.ts";
+import { SandboxInvalidRootError } from "../src/roots.ts";
 
 const probe = probeBackend(process.platform, DEFAULT_CONFIG);
 const skip = probe.ok ? false : `no usable backend: ${probe.reason}`;
@@ -70,6 +71,62 @@ test("workspace-write still refuses a write outside the workspace", { skip }, ()
   assert.notEqual(result.status, 0);
   assert.equal(confiner?.matchesDenial(result.stderr), true, `stderr: ${result.stderr}`);
   assert.equal(existsSync(target), false);
+});
+
+test("workspace-write grants an explicit extra root", { skip }, () => {
+  withWorkspace((workspace) => {
+    const extra = mkdtempSync(join(tmpdir(), "pi-dsh-sandbox-extra-"));
+    try {
+      const target = join(extra, "written.txt");
+      const command = wrap(
+        confiner,
+        { mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [extra] },
+        `echo hi > ${shellQuote(target)}`,
+      );
+      const result = run(command);
+      assert.equal(result.status, 0, `stderr: ${result.stderr}`);
+      assert.equal(readFileSync(target, "utf-8"), "hi\n");
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
+});
+
+test("workspace-write still refuses a write outside the workspace and the extra roots", { skip }, () => {
+  withWorkspace((workspace) => {
+    const extra = mkdtempSync(join(tmpdir(), "pi-dsh-sandbox-extra-"));
+    try {
+      const target = `/etc/pi-dsh-sandbox-extra-probe-${process.pid}`;
+      const command = wrap(
+        confiner,
+        { mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [extra] },
+        `echo hi > ${shellQuote(target)}`,
+      );
+      const result = run(command);
+      assert.notEqual(result.status, 0);
+      assert.equal(confiner?.matchesDenial(result.stderr), true, `stderr: ${result.stderr}`);
+      assert.equal(existsSync(target), false);
+    } finally {
+      rmSync(extra, { recursive: true, force: true });
+    }
+  });
+});
+
+test("a symlinked explicit extra root is rejected before the command runs", { skip }, () => {
+  withWorkspace((workspace) => {
+    const physical = join(workspace, "physical");
+    mkdirSync(physical);
+    const alias = join(workspace, "alias");
+    symlinkSync(physical, alias);
+    assert.throws(
+      () => wrap(
+        confiner,
+        { mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [alias] },
+        "true",
+      ),
+      SandboxInvalidRootError,
+    );
+  });
 });
 
 test("danger-full-access is handled by the caller, not the rung", { skip }, () => {

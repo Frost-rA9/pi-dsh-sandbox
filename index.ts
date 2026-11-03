@@ -110,7 +110,11 @@ async function applyMode(
     pi.sendMessage(
       {
         customType: SANDBOX_NOTICE_TYPE,
-        content: sandboxSwitchNotice(state.effectiveMode(), state.resolve().workspaceRoot),
+        content: sandboxSwitchNotice(
+          state.effectiveMode(),
+          state.resolve().workspaceRoot,
+          state.config.additionalWritableRoots,
+        ),
         display: true,
         details: undefined,
       },

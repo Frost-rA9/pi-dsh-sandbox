@@ -71,6 +71,8 @@ A denied write carries one marker, whichever layer refused it:
 
 The same result tells the model to retry that exact operation with `sandbox_permissions` and a one-sentence `justification`.
 
+Requesting the mode already in force is not an escalation: it needs neither a justification nor an approval dialog. A blank justification without `sandbox_permissions` counts as absent; a non-blank one without `sandbox_permissions` is rejected.
+
 pi asks you to approve, and the grant covers that single call. A rejection, a cancelled prompt, or a missing dialog channel keeps the denial. Concurrent asks wait in a queue and open one at a time.
 
 A `codemode` script may ask for the wider mode for its whole run. `sandbox_permissions` and `justification` on the `codemode` call cover every call the script makes. The grant ends with the run or when the session mode changes.
@@ -88,7 +90,10 @@ The extension reports an unknown key or a bad value at startup, and the session 
 | `mode` | `workspace-write` | Mode the session starts from |
 | `bwrapPath` | `bwrap` | Runner the Linux backend invokes |
 | `seatbeltPath` | `sandbox-exec` | Runner the macOS backend invokes |
+| `additionalWritableRoots` | `[]` | Extra physical directories `workspace-write` may write under |
 | `probeTimeoutMs` | `5000` | Milliseconds allowed for the one-time backend probe |
+
+`additionalWritableRoots` entries are absolute and physical: the extension rejects a missing path, a file, and a path spelled through a symlink, on every confined call. Entries grant nothing under `read-only` or `danger-full-access`. Nothing is discovered automatically — list each directory by hand.
 
 ## Limitations
 

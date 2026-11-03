@@ -6,6 +6,11 @@
  * approved grant outranks the session override, which outranks the deployment
  * default; a non-widening or rejected request throws BEFORE anything executes.
  *
+ * The pairing rules are dsh 0.2.2's: repeating the standing mode is not an
+ * escalation, so it needs neither approval nor a justification; a blank
+ * justification without a mode is treated as absent; a non-empty justification
+ * without a mode is rejected.
+ *
  * @module pi-dsh-sandbox/calls
  */
 
@@ -40,18 +45,25 @@ export async function resolveCallPolicy(
   subject: string,
   toolCallId?: string,
 ): Promise<Policy> {
-  validateEscalationArgs(args.sandbox_permissions, args.justification);
   const standing = state.resolve();
   // A call inside a codemode run resolves to the mode that run was granted,
   // which is dsh's one-shot program policy carried to the calls pi's codemode
   // makes in its place (docs/design.md chapter 4.3).
   const runMode = runModeFor(toolCallId);
   const base = runMode === undefined ? standing : { ...standing, mode: runMode };
+  // Repeating the standing mode grants nothing, so it needs no justification and
+  // no approval. Checked against the standing mode, not the run grant: the run
+  // grant already widened this call.
+  if (args.sandbox_permissions !== undefined && args.sandbox_permissions === standing.mode) return base;
+  const justification = args.sandbox_permissions === undefined && args.justification?.trim() === ""
+    ? undefined
+    : args.justification;
+  validateEscalationArgs(args.sandbox_permissions, justification);
   if (args.sandbox_permissions === undefined) return base;
   const granted = await approveEscalation(
     {
       requestedMode: args.sandbox_permissions,
-      justification: args.justification as string,
+      justification: justification as string,
       effectiveMode: base.mode,
       subject,
     },

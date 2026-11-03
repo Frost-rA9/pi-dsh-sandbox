@@ -73,6 +73,8 @@ Non-goals:
 
 Both layers read the same writable-root derivation, so the `write` tool and `bash` cannot disagree about what `workspace-write` means.
 
+dsh 0.2.2 splits that derivation in two: the workspace plus its explicit extra directories (`workspaceWritableRoots`) and the same set plus the platform temp areas (`writableRoots`). Bubblewrap mounts its own `/tmp`, so it takes the first; the fence and Seatbelt take the second. An explicit extra root must be an existing physical directory, checked on every confined call, and grants nothing under `read-only`.
+
 ### 4.2 Session state and per-call resolution
 
 > **Why & What: `appendEntry` replaces the log-only event**
@@ -93,7 +95,7 @@ Resolution precedence is dsh's: an approved grant outranks the session override,
 
 > **Why & What: escalation covers one call and only widens**
 >
-> **What:** a denied call may retry once with `sandbox_permissions` plus a `justification`. The user approves, and the grant applies to that call only.
+> **What:** a denied call may retry once with `sandbox_permissions` plus a `justification`. The user approves, and the grant applies to that call only. Requesting the mode already in force is not an escalation, so it needs neither a justification nor a dialog.
 >
 > **Why:** dsh checks the pairing, proves the target is strictly wider, and asks for approval before execution. A session-wide grant would turn one exception into a standing widening, and it would not help a denial caused by anything other than the mode. Those denials keep their own error.
 >
@@ -146,20 +148,20 @@ Nested calls keep their own policies, and a wider request still asks on its own.
 | Behavior | dsh anchor | pi anchor | Port result |
 | --- | --- | --- | --- |
 | Mode vocabulary and policy type | `packages/sandbox/sandbox/src/index.ts` (`SandboxMode`, `SandboxExecutionPolicy`, `SandboxUnavailableError`) | `src/modes.ts` | Ported. |
-| Writable roots | `packages/sandbox/sandbox/src/roots.ts` (`canonicalPath`, `writableRoots`) | `src/roots.ts` | Ported verbatim. |
-| Filesystem fence | `packages/fs/fs-sandbox/src/index.ts` (`SandboxedFileSystem.checkedTarget`) | `src/fence.ts` | Ported, including the re-canonicalize-before-write window. |
+| Writable roots | `packages/sandbox/sandbox/src/roots.ts` (`canonicalPath`, `workspaceWritableRoots`, `writableRoots`) | `src/roots.ts` | Ported verbatim, including the explicit extra-directory checks. Substitution: dsh extends `HarnessError` (`SANDBOX_INVALID_ROOT`); pi has no such base class, so `SandboxInvalidRootError` extends `Error` and carries the same `code` and message. |
+| Filesystem fence | `packages/fs/fs-sandbox/src/index.ts` (`SandboxedFileSystem.checkedTarget`) | `src/fence.ts` | Ported, including the re-canonicalize-before-write window. Divergence: dsh 0.2.2 also fences `patchText`, `deleteFile`, and `moveFile`; pi has no such tools, and its deletions and moves run through `bash`, which the command boundary confines. |
 | Path containment | `packages/fs/fs-sandbox/src/containment.ts` (`isPathUnder`) | `src/containment.ts` | Ported. |
-| Per-call policy resolution | `packages/fs/tool-fs/src/sandbox.ts` (`FsSandboxController.resolvePolicy`) | `src/calls.ts` | Ported precedence. The workspace root stays the session-start cwd because pi has no working-directory service (reviewed at `687f282e86`). |
+| Per-call policy resolution | `packages/fs/tool-fs/src/sandbox.ts` (`FsSandboxController.resolvePolicy`) | `src/calls.ts` | Ported precedence and the relaxed pairing. The workspace root stays the session-start cwd because pi has no working-directory service (reviewed at `687f282e86`). |
 | Write and edit tools | `packages/fs/tool-fs/src/write.ts`, `edit.ts` | `src/fstools.ts` | Ported for the two mutations. Reads and listings pass through. Path resolution and results come from pi, not from dsh's tool layer (reviewed at `687f282e86`). |
-| Escalation vocabulary | `packages/sandbox/sandbox/src/escalation.ts` | `src/escalation.ts`, `src/schema.ts`, `src/dialog-queue.ts` | Ported verbatim for the strings. The approval channel substitutes `ctx.ui.select` for `ctx.approval`. A queue keeps one dialog open. |
-| Program-level escalation (PTC `run_code`) | `packages/core/tools/src/ptc.ts` (`RUN_CODE_CONTROLS`, `escalationGuidance`, `subject: 'program'`) | `src/codemode.ts`, `src/run-grant.ts` | Ported for the fields, one-shot grant, denial guidance, retry flow, and mode-change cancellation. Divergence: the grant rides nested calls because pi's codemode has no effects (ch. 4.3). |
+| Escalation vocabulary | `packages/sandbox/sandbox/src/escalation.ts` | `src/escalation.ts`, `src/schema.ts`, `src/dialog-queue.ts` | Ported verbatim for the strings. The approval channel substitutes `ctx.ui.select` for `ctx.approval`. A queue keeps one dialog open. dsh builds the approval `displayReason` from its locale tables; pi keeps the English sentence. The relaxed pairing (repeating the standing mode needs no justification) applies to the program tier too, where dsh still validates strictly. |
+| Program-level escalation (PTC `run_code`) | `packages/core/tool-executor-ptc/src/ptc.ts` (`RUN_CODE_CONTROLS`, `escalationGuidance`, `subject: 'program'`) | `src/codemode.ts`, `src/run-grant.ts` | Ported for the fields, one-shot grant, denial guidance, retry flow, and mode-change cancellation. Divergence: the grant rides nested calls because pi's codemode has no effects (ch. 4.3). |
 | Bash family | `packages/shell/bash-sandbox/src/index.ts` | `src/bash.ts` | Ported. The pi seams are the `bash` tool override and `user_bash`. |
 | Bubblewrap profile | `packages/sandbox/sandbox-local/src/profiles.ts` (`bwrapProfileArgs`) | `src/bwrap.ts` | Ported. The Landlock rung from the same file is not. |
 | Seatbelt profile | `packages/sandbox/sandbox-local/src/profiles.ts` (`seatbeltProfileArgs`) | `src/seatbelt.ts` | Ported, including the dialect probe. |
 | Backend selection and probe | `packages/sandbox/sandbox-local/src/index.ts` | `src/backend.ts` | Ported and reduced to one rung per platform. |
 | Session override | `packages/sandbox/sandbox-policy/src/session-mode.ts` (`sandbox/mode`, `setSandboxMode`), `index.ts` (`SandboxPolicyService.resolve`) | `src/state.ts` | Substituted storage, same precedence (ch. 4.2). |
-| Policy sentences | `packages/sandbox/sandbox-policy/src/index.ts` (`renderPolicyContext`) | `src/notice.ts` | Adapted: the per-request runtime context becomes a switch notice, with the product name replaced. |
-| Windows ACL rung | `packages/sandbox/sandbox-windows-acl/src/` | not ported | Divergence: win32 falls back to `danger-full-access` (ch. 4.5). |
+| Policy sentences | `packages/sandbox/sandbox-policy/src/index.ts` (`renderPolicyContext`) | `src/notice.ts` | Adapted: the per-request runtime context becomes a switch notice, with the product name replaced. The extra-directory sentence is ported with it. |
+| Windows ACL rung | `packages/sandbox/sandbox-windows-acl/src/` | not ported | Divergence: win32 falls back to `danger-full-access` (ch. 4.5), so dsh 0.2.2's `SandboxUnsupportedPolicyError` for extra roots on that rung has no pi counterpart — no policy reaches a rung there. |
 | Landlock rung | `packages/sandbox/sandbox-local/src/profiles.ts` (`landlockProfileArgs`) | not ported | Divergence: Linux uses bubblewrap only. |
 
 ## 6. Benefits and costs

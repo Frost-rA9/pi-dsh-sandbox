@@ -153,12 +153,16 @@ export class SandboxState {
    * Resolve the complete policy for one capability call.
    *
    * @param approvedMode A granted escalation mode, which outranks the session override.
-   * @returns The fully resolved per-call mode and absolute workspace root.
+   * @returns The fully resolved per-call mode, absolute workspace root, and extra roots.
    */
   resolve(approvedMode?: SandboxMode): Policy {
+    const additional = this.config.additionalWritableRoots;
     return {
       mode: this.applyFallback(approvedMode ?? this.override ?? this.config.mode).mode,
       workspaceRoot: this.workspaceRoot,
+      // Absence, not an empty array, is what every enforcement path reads as
+      // "no extra grant" (dsh's `additionalWritableRoots?: readonly string[]`).
+      ...(additional.length === 0 ? {} : { additionalWritableRoots: additional }),
     };
   }
 

@@ -19,6 +19,21 @@ test("workspace-write names the workspace boundary", () => {
   assert.match(sandboxPolicyContext("workspace-write", "/home/me/project"), /"\/home\/me\/project"/);
 });
 
+test("workspace-write names the extra writable directories when configured", () => {
+  const sentence = sandboxPolicyContext("workspace-write", "/home/me/project", ["/srv/shared", "/srv/cache"]);
+  assert.match(sentence, /Additional writable directories: \["\/srv\/shared","\/srv\/cache"\]\./);
+});
+
+test("no extra sentence without configured roots", () => {
+  assert.doesNotMatch(sandboxPolicyContext("workspace-write", "/work"), /Additional writable/);
+  assert.doesNotMatch(sandboxPolicyContext("workspace-write", "/work", []), /Additional writable/);
+});
+
+test("the switch notice carries the extra roots through", () => {
+  const notice = sandboxSwitchNotice("workspace-write", "/work", ["/srv/shared"]);
+  assert.match(notice, /Additional writable directories: \["\/srv\/shared"\]\./);
+});
+
 test("the switch notice pairs the sentence with the policy text", () => {
   const notice = sandboxSwitchNotice("read-only", "/work");
   assert.match(notice, /^The user switched this session's sandbox mode to read-only\./);

@@ -11,13 +11,14 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { canonicalPath, writableRoots } from "../src/roots.ts";
+import { canonicalPath, workspaceWritableRoots, writableRoots } from "../src/roots.ts";
 import type { Policy, SandboxMode } from "../src/modes.ts";
 import { loadDsh, paritySkip } from "./parity/dsh.ts";
 
 interface DshRoots {
   canonicalPath(path: string): string;
-  writableRoots(policy: { mode: string; workspaceRoot: string }): string[];
+  workspaceWritableRoots(policy: { mode: string; workspaceRoot: string; additionalWritableRoots?: readonly string[] }): string[];
+  writableRoots(policy: { mode: string; workspaceRoot: string; additionalWritableRoots?: readonly string[] }): string[];
 }
 
 const MODES: SandboxMode[] = ["read-only", "workspace-write", "danger-full-access"];
@@ -45,5 +46,55 @@ test("writableRoots matches dsh for every mode", { skip: paritySkip }, async (t)
   for (const mode of MODES) {
     const policy = { mode, workspaceRoot: workspace };
     assert.deepEqual(writableRoots(policy as Policy), dsh.writableRoots(policy), mode);
+  }
+});
+
+test("explicit extra roots match dsh in both derivations", { skip: paritySkip }, async (t) => {
+  const dsh = await loadDsh<DshRoots>("packages/sandbox/sandbox/src/roots.ts");
+  const workspace = mkdtempSync(join(tmpdir(), "pi-dsh-roots-"));
+  const extra = mkdtempSync(join(tmpdir(), "pi-dsh-roots-extra-"));
+  t.after(() => {
+    rmSync(workspace, { recursive: true, force: true });
+    rmSync(extra, { recursive: true, force: true });
+  });
+
+  for (const mode of MODES) {
+    const policy = { mode, workspaceRoot: workspace, additionalWritableRoots: [extra] };
+    assert.deepEqual(workspaceWritableRoots(policy as Policy), dsh.workspaceWritableRoots(policy), `${mode} workspace roots`);
+    assert.deepEqual(writableRoots(policy as Policy), dsh.writableRoots(policy), `${mode} writable roots`);
+  }
+});
+
+test("a rejected explicit root matches dsh: same message, same code", { skip: paritySkip }, async (t) => {
+  const dsh = await loadDsh<DshRoots>("packages/sandbox/sandbox/src/roots.ts");
+  const workspace = mkdtempSync(join(tmpdir(), "pi-dsh-roots-"));
+  t.after(() => rmSync(workspace, { recursive: true, force: true }));
+  const missing = join(workspace, "missing");
+  const file = join(workspace, "file.txt");
+  writeFileSync(file, "x");
+  const alias = join(workspace, "alias");
+  symlinkSync(workspace, alias, "dir");
+
+  for (const root of [missing, file, alias]) {
+    const policy = { mode: "workspace-write", workspaceRoot: workspace, additionalWritableRoots: [root] };
+    const ours = (() => {
+      try {
+        writableRoots(policy as Policy);
+        return undefined;
+      } catch (error: unknown) {
+        return error as { message: string; code?: string };
+      }
+    })();
+    const theirs = (() => {
+      try {
+        dsh.writableRoots(policy);
+        return undefined;
+      } catch (error: unknown) {
+        return error as { message: string; code?: string };
+      }
+    })();
+    assert.ok(ours !== undefined && theirs !== undefined, `both must reject ${root}`);
+    assert.equal(ours.message, theirs.message);
+    assert.equal(ours.code, theirs.code);
   }
 });
