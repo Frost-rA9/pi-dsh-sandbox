@@ -15,7 +15,7 @@
 
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -45,6 +45,20 @@ const {
   getAgentDir,
   SessionManager,
 } = await import(piDist);
+
+// pi coerces and validates a tool call's arguments in pi-ai, before the tool's
+// execute() runs. The module path is pi-ai's own, not an extension API: npm may
+// nest it under pi-coding-agent or hoist it to the shared scope, so both
+// layouts are tried. On a layout that moves it, the validation checks below
+// skip instead of failing.
+const validationCandidates = [
+  join(dirname(piDist), "../node_modules/@earendil-works/pi-ai/dist/utils/validation.js"),
+  join(dirname(piDist), "../../pi-ai/dist/utils/validation.js"),
+].filter((candidate) => existsSync(candidate));
+const validationPath = validationCandidates[0];
+const validateToolArguments = validationPath === undefined
+  ? undefined
+  : (await import(validationPath)).validateToolArguments;
 
 const rows = [];
 const record = (name, ok, detail = "") => rows.push([ok ? "PASS" : "FAIL", name, detail]);
@@ -265,6 +279,93 @@ try {
     );
   } finally {
     session.dispose();
+  }
+
+  // ---------------------------------------------------------------- phase A2 —
+  // pi's argument validation. The escalation fields are declared on every
+  // registered tool, and pi validates and coerces them before execute(), so
+  // these assertions pin what the extension actually reads: the enum is
+  // enforced by pi, a missing justification reaches the pairing check, and the
+  // loose forms a model sends are coerced rather than rejected.
+  const skipValidation = (why) => {
+    recordSkip("pi validation: an unknown sandbox_permissions is rejected before execute", why);
+    recordSkip("pi validation: sandbox_permissions without justification passes pi", why);
+    recordSkip("pi validation: a null sandbox_permissions is dropped", why);
+    recordSkip("pi validation: a numeric justification arrives as a string", why);
+  };
+  if (validateToolArguments === undefined) {
+    skipValidation(`no validation module next to ${piDist}`);
+  } else {
+    const { session: validationSession } = await buildSession(workspace, undefined);
+    try {
+      const write = validationSession.getToolDefinition("write");
+      if (write === undefined) {
+        skipValidation("write is not registered");
+      } else {
+        /** pi's validation for one `write` call: the coerced value, or the message the model would see. */
+        const validate = (args) => {
+          try {
+            return {
+              ok: true,
+              value: validateToolArguments(write, { type: "toolCall", id: "validation", name: "write", arguments: args }),
+            };
+          } catch (error) {
+            return { ok: false, message: error instanceof Error ? error.message : String(error) };
+          }
+        };
+
+        const unknownTarget = validate({
+          path: join(workspace, "validation-a.txt"),
+          content: "x",
+          sandbox_permissions: "full-access",
+          justification: "why",
+        });
+        record(
+          "pi validation: an unknown sandbox_permissions is rejected before execute",
+          !unknownTarget.ok
+            && /Validation failed for tool "write"/.test(unknownTarget.message)
+            && /sandbox_permissions/.test(unknownTarget.message),
+          unknownTarget.ok ? "unexpectedly passed" : (unknownTarget.message.split("\n")[1] ?? "").trim(),
+        );
+
+        const noReason = validate({
+          path: join(workspace, "validation-b.txt"),
+          content: "x",
+          sandbox_permissions: "danger-full-access",
+        });
+        record(
+          "pi validation: sandbox_permissions without justification passes pi, so the pairing check is what rejects it",
+          noReason.ok && noReason.value.sandbox_permissions === "danger-full-access",
+          noReason.ok ? "" : noReason.message.split("\n")[0],
+        );
+
+        const nullTarget = validate({
+          path: join(workspace, "validation-c.txt"),
+          content: "x",
+          sandbox_permissions: null,
+          justification: "why",
+        });
+        record(
+          "pi validation: a null sandbox_permissions is dropped, not rejected",
+          nullTarget.ok && !("sandbox_permissions" in nullTarget.value),
+          nullTarget.ok ? `keys=${Object.keys(nullTarget.value).join(",")}` : nullTarget.message.split("\n")[0],
+        );
+
+        const numericReason = validate({
+          path: join(workspace, "validation-d.txt"),
+          content: "x",
+          sandbox_permissions: "danger-full-access",
+          justification: 5,
+        });
+        record(
+          "pi validation: a numeric justification arrives as a string",
+          numericReason.ok && numericReason.value.justification === "5",
+          numericReason.ok ? `justification=${JSON.stringify(numericReason.value.justification)}` : numericReason.message.split("\n")[0],
+        );
+      }
+    } finally {
+      validationSession.dispose();
+    }
   }
 
   // ---------------------------------------------------------------- phase B —

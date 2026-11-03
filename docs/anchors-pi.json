@@ -172,6 +172,16 @@
       "evidence": "documented-api",
       "coveredBy": "npm run check:shape",
       "risk": "the drift check compares pi's own definition with the replacement"
+    },
+    {
+      "id": "tool-argument-validation",
+      "seam": "pi coerces and validates tool call arguments against the registered parameters before execute(), so the escalation fields are already coerced when the extension reads them",
+      "declaration": "node_modules/@earendil-works/pi-ai/dist/utils/validation.d.ts",
+      "symbol": "validateToolArguments",
+      "usage": ["src/schema.ts"],
+      "evidence": "observed-behavior",
+      "coveredBy": "npm run check:tools (pi validation assertions)",
+      "risk": "a change in pi-schema's coercion alters what the escalation check receives: today a null sandbox_permissions is dropped and a numeric justification arrives as a string"
     }
   ]
 }
