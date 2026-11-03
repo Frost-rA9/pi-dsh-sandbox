@@ -34,7 +34,7 @@ The extension binds the mode as an appended entry. It resolves a per-call policy
 - **Extended**: the port adds behavior dsh does not have at that anchor.
 - **Not ported**: the dsh feature is absent here, and the table names the consequence.
 
-The dsh anchors below come from `deepseek-harness` at `687f282e86` (`0.2.1-rc.2`). The pi behavior refers to pi `1.4.0` in `anchors-pi.json`. dsh paths are relative to the harness root, and pi paths to this repository.
+The dsh anchors below come from `deepseek-harness` at `687f282e86` (`0.2.1-rc.2`). The pi behavior refers to pi `1.5.0` in `anchors-pi.json`. dsh paths are relative to the harness root, and pi paths to this repository.
 
 The dsh tree moves, so re-check a path and symbol before you rely on it, and cite the commit when a divergence matters. Tooling anchors live in `anchors-dsh.json` and `anchors-pi.json`. The chapter 5 table is the readable view, and both files change with it.
 
